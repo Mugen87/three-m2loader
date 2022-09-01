@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>three.js - M2Loader</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<link type="text/css" rel="stylesheet" href="https://threejs.org/examples/main.css">
+	</head>
+
+	<body>
+		<div id="info">
+			<a href="https://threejs.org" target="_blank" rel="noopener">three.js</a> - M2Loader<br />
+			Assets from <a href="https://wow.tools/files" target="_blank" rel="noopener">wow.tools</a>
+		</div>
+
+		<!-- Import maps polyfill -->
+		<!-- Remove this when import maps will be widely supported -->
+		<script async src="https://unpkg.com/es-module-shims@1.3.6/dist/es-module-shims.js"></script>
+
+		<script type="importmap">
+			{
+				"imports": {
+					"three": "https://unpkg.com/three@0.144/build/three.module.js",
+					"three/addons/": "https://unpkg.com/three@0.144/examples/jsm/"
+				}
+			}
+		</script>
+
+		<script type="module">
+
+			import * as THREE from 'three';
+
+			import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+			import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
+
+			import { M2Loader } from '../M2Loader.js';
+
+			const params = {
+				asset: 'cat/druidcat2.m2'
+			};
+
+			const assets = [
+				'cat/druidcat2.m2',
+				'desk/7ne_druid_worktable01.m2',
+				'desk2/7ne_druid_worktable02.m2',
+				'flower/7ne_nightelf_flower01.m2',
+				'flower2/bush_peacebloom01.m2',
+				'fountain/gilneas_fountain01.m2',
+				'barrel/7ne_nightelf_barrel01.m2',
+				'spell/g_scourgerunecirclecrystal.m2'
+			];
+
+			let camera, scene, renderer, controls, loader, clock;
+
+			const mixers = [];
+			
+			let m2Scene;
+			
+			init();
+			animate();
+
+			function init() {
+
+				const container = document.createElement( 'div' );
+				document.body.appendChild( container );
+
+				camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 0.1, 50 );
+				camera.position.set( 4, 2, 4 );
+
+				scene = new THREE.Scene();
+
+				clock = new THREE.Clock();
+
+				const ambientLight = new THREE.AmbientLight( 0xffffff, 0.6 );
+				scene.add( ambientLight );
+
+				const directionalLight = new THREE.DirectionalLight( 0xffffff );
+				directionalLight.position.set( 10, 10, 0 );
+				scene.add( directionalLight );
+
+				loader = new M2Loader();
+				loadAsset( params.asset );
+
+				renderer = new THREE.WebGLRenderer( { antialias: true } );
+				renderer.setPixelRatio( window.devicePixelRatio );
+				renderer.setSize( window.innerWidth, window.innerHeight );
+				container.appendChild( renderer.domElement );
+
+				controls = new OrbitControls( camera, renderer.domElement );
+				controls.minDistance = 2;
+				controls.maxDistance = 20;
+				controls.target.set( 0, 0.5, 0 );
+				controls.update();
+
+				window.addEventListener( 'resize', onWindowResize );
+
+				//
+
+				const gui = new GUI();
+				gui.add( params, 'asset', assets ).onChange( function ( value ) {
+
+					if ( m2Scene ) {
+
+						m2Scene.traverse( function ( object ) {
+
+							if ( object.material ) object.material.dispose();
+							if ( object.material && object.material.map ) object.material.map.dispose();
+							if ( object.geometry ) object.geometry.dispose();
+
+						} );
+
+						scene.remove( m2Scene );
+
+					}
+
+					loadAsset( value );
+
+				} );
+
+			}
+
+			function loadAsset( asset ) {
+
+				loader.load( 'models/' + asset, function ( m2 ) {
+
+					m2.rotation.x = - 0.5 * Math.PI;
+					m2.rotation.z = - 0.5 * Math.PI;
+
+					m2Scene = m2;
+					scene.add( m2Scene );
+
+					m2Scene.traverse( function ( object ) {
+
+						if ( object.animations.length > 0 ) {
+
+							const clip = object.animations[ 0 ];
+							const mixer = new THREE.AnimationMixer( object );
+							const action = mixer.clipAction( clip );
+							action.play();
+							mixers.push( mixer );
+
+						}
+
+					} );
+
+				} );
+
+			}
+
+			function onWindowResize() {
+
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+
+				renderer.setSize( window.innerWidth, window.innerHeight );
+
+			}
+
+			//
+
+			function animate() {
+
+				requestAnimationFrame( animate );
+
+				const delta = clock.getDelta();
+
+				for ( let i = 0; i < mixers.length; i ++ ) {
+
+					mixers[ i ].update( delta );
+
+				}
+
+				renderer.render( scene, camera );
+
+			}
+
+		</script>
+
+	</body>
+</html>

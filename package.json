@@ -1,0 +1,39 @@
+{
+  "name": "three-m2loader",
+  "version": "1.0.0",
+  "description": "three.js loader for importing M2 assets from World of Warcraft.",
+  "main": "M2Loader.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "serve"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Mugen87/three-m2loader.git"
+  },
+  "keywords": [
+    "three.js",
+    "M2"
+  ],
+  "author": "Mugen87",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Mugen87/three-m2loader/issues"
+  },
+  "eslintConfig": {
+    "extends": "mdcs",
+    "plugins": [
+      "html"
+    ]
+  },
+  "homepage": "https://github.com/Mugen87/three-m2loader#readme",
+  "dependencies": {
+    "three": "0.144.0"
+  },
+  "devDependencies": {
+    "eslint": "^8.23.0",
+    "eslint-config-mdcs": "^5.0.0",
+    "eslint-plugin-html": "^7.1.0",
+    "serve": "^14.0.1"
+  }
+}
