@@ -27,17 +27,31 @@ import {
 	VectorKeyframeTrack
 } from 'three';
 
-// The loader in its current state is just a foundation for a more advanced M2 loader. Right now, the class only implements
-// a small portion of what is defined at https://wowdev.wiki/M2.
-
+/**
+* The loader in its current state is just a foundation for a more advanced M2 loader. Right now, the class only implements
+* a small portion of what is defined at https://wowdev.wiki/M2.
+*/
 class M2Loader extends Loader {
 
+	/**
+	* Constructs a new loader instance.
+	*
+	* @param {THREE.LoadingManager} manager - The loading manager.
+	*/
 	constructor( manager ) {
 
 		super( manager );
 
 	}
 
+	/**
+	* Method for loading an M2 asset by the given URL.
+	*
+	* @param {String} url - The URL to the M2 asset.
+	* @param {onLoad} url - A callback function executed when the asset has been loaded.
+	* @param {onProgress} onProgress - A callback function executed during the loading process indicating the progress.
+	* @param {onError} onError - A callback function executed when an error occurs.
+	*/
 	load( url, onLoad, onProgress, onError ) {
 
 		const loader = new FileLoader( this.manager );
@@ -75,7 +89,15 @@ class M2Loader extends Loader {
 
 	}
 
-	parse( buffer, path, onLoad, onError ) {
+	/**
+	* This method parses the loaded M2 data and creates three.js entities for rendering.
+	*
+	* @param {ArrayBuffer} buffer - The loaded M2 data.
+	* @param {String} url - The URL to the M2 asset.
+	* @param {onLoad} onLoad - A callback function executed when the asset has been loaded.
+	* @param {onError} onError - A callback function executed when an error occurs.
+	*/
+	parse( buffer, url, onLoad, onError ) {
 
 		const parser = new BinaryParser( buffer );
 
@@ -137,7 +159,7 @@ class M2Loader extends Loader {
 
 		// loaders
 
-		const resourcePath = LoaderUtils.extractUrlBase( path );
+		const resourcePath = LoaderUtils.extractUrlBase( url );
 
 		const textureLoader = new BLPLoader( this.manager );
 		textureLoader.setPath( resourcePath );
@@ -2013,4 +2035,27 @@ function int16ToFloat( x ) {
 
 }
 
-export { M2Loader, M2SkinLoader, BLPLoader };
+// JSDoc
+
+/**
+ * onLoad callback
+ *
+ * @callback onLoad
+ * @param {THREE.Group} object - The result object.
+ */
+
+/**
+ * onProgress callback
+ *
+ * @callback onProgress
+ * @param {ProgressEvent} event - The progress event.
+ */
+
+/**
+ * onError callback
+ *
+ * @callback onError
+ * @param {Error} error - The error object.
+ */
+
+export { M2Loader };
