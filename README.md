@@ -1,4 +1,4 @@
-# three-m2loader
+# three-m2loader &middot; [![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/Mugen87/yuka/blob/master/LICENSE) [![NPM Package](https://img.shields.io/npm/v/three-m2loader.svg)](https://www.npmjs.com/package/three-m2loader)
 
 ### M2 Loader for three.js
 
