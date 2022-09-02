@@ -12,4 +12,17 @@
 
 If you want to load an asset into your `three.js` app, you have to put all external resources like `.blp` or `.skin` files into the same directory like the M2 file. Depending on the M2 version, you have to name resources files with their `FileDataID` or with their actual file name. 
 
+A minimal code example looks like so:
+
+```js
+import { M2Loader } from 'three-m2loader';
+
+const loader = new M2Loader();
+loader.load( 'models/cat/druidcat2.m2', function ( mesh ) {
+
+    scene.add( mesh );
+
+} );
+```
+
 This loader requires `three.js` in version `r144` or higher.
