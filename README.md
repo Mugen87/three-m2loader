@@ -18,9 +18,9 @@ A minimal code example looks like so:
 import { M2Loader } from 'three-m2loader';
 
 const loader = new M2Loader();
-loader.load( 'models/cat/druidcat2.m2', function ( mesh ) {
+loader.load( 'models/cat/druidcat2.m2', function ( group ) {
 
-    scene.add( mesh );
+    scene.add( group );
 
 } );
 ```
