@@ -48,7 +48,7 @@ class M2Loader extends Loader {
 	* Method for loading an M2 asset by the given URL.
 	*
 	* @param {String} url - The URL to the M2 asset.
-	* @param {onLoad} url - A callback function executed when the asset has been loaded.
+	* @param {onLoad} onLoad - A callback function executed when the asset has been loaded.
 	* @param {onProgress} onProgress - A callback function executed during the loading process indicating the progress.
 	* @param {onError} onError - A callback function executed when an error occurs.
 	*/
