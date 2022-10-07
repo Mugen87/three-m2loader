@@ -147,7 +147,7 @@ class M2Loader extends Loader {
 		const textureDefinitions = this._readTextureDefinitions( parser, header );
 		const textureTransformDefinitions = this._readTextureTransformDefinitions( parser, header );
 		const textureWeightDefinitions = this._readTextureWeightDefinitions( parser, header );
-		const boneDefinitions = this._readBoneDefinitions( parser, header );
+		// const boneDefinitions = this._readBoneDefinitions( parser, header );
 
 		// lookup tables
 
@@ -179,9 +179,11 @@ class M2Loader extends Loader {
 
 			// skins
 
+			let promise;
+
 			if ( header.version <= M2_VERSION_THE_BURNING_CRUSADE ) {
 
-				// TODO: read embedded skin data
+				promise = Promise.resolve( this._readEmbeddedSkinData( parser, header ) );
 
 			} else {
 
@@ -195,7 +197,7 @@ class M2Loader extends Loader {
 
 				}
 
-				const promise = new Promise( ( resolve, reject ) => {
+				promise = new Promise( ( resolve, reject ) => {
 
 					skinLoader.load( filename, resolve, undefined, () => {
 
@@ -205,22 +207,22 @@ class M2Loader extends Loader {
 
 				} );
 
-				// build
-
-				promise.then( skinData => {
-
-					const geometries = this._buildGeometries( skinData, vertices );
-					const skeleton = this._buildSkeleton( boneDefinitions ); // eslint-disable-line no-unused-vars
-					const materials = this._buildMaterials( materialDefinitions );
-					const textureTransforms = this._buildTextureTransforms( textureTransformDefinitions );
-					const textureWeights = this._buildTextureWeights( textureWeightDefinitions );
-					const group = this._buildObjects( name, geometries, materials, textures, textureTransforms, textureWeights, skinData, lookupTables );
-
-					onLoad( group );
-
-				} ).catch( onError );
-
 			}
+
+			// build
+
+			promise.then( skinData => {
+
+				const geometries = this._buildGeometries( skinData, vertices );
+				// const skeleton = this._buildSkeleton( boneDefinitions );
+				const materials = this._buildMaterials( materialDefinitions );
+				const textureTransforms = this._buildTextureTransforms( textureTransformDefinitions );
+				const textureWeights = this._buildTextureWeights( textureWeightDefinitions );
+				const group = this._buildObjects( name, geometries, materials, textures, textureTransforms, textureWeights, skinData, lookupTables );
+
+				onLoad( group );
+
+			} ).catch( onError );
 
 		} ).catch( onError );
 
@@ -928,6 +930,22 @@ class M2Loader extends Loader {
 
 	}
 
+	_readEmbeddedSkinData( parser, header ) {
+
+		const offset = header.skinProfilesOffset;
+
+		parser.saveState();
+		parser.moveTo( offset );
+
+		const loader = new M2SkinLoader();
+		const skinData = loader.read( parser, header );
+
+		parser.restoreState();
+
+		return skinData;
+
+	}
+
 	_readMaterialDefinitions( parser, header ) {
 
 		const length = header.materialsLength;
@@ -1446,6 +1464,12 @@ class M2SkinLoader extends Loader {
 			}
 
 		}
+
+		return this.read( parser, header );
+
+	}
+
+	read( parser, header ) {
 
 		// header
 
