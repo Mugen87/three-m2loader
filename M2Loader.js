@@ -2024,11 +2024,11 @@ class M2Vertex {
 
 }
 
-function int16ToFloat( x ) {
+// function int16ToFloat( x ) {
 
-	return ( x < 0 ? x + 32768 : x - 32767 ) / 32767;
+// 	return ( x < 0 ? x + 32768 : x - 32767 ) / 32767;
 
-}
+// }
 
 // JSDoc
 
