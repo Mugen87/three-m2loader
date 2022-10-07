@@ -1155,97 +1155,92 @@ class M2Loader extends Loader {
 
 		// timestamps
 
-		const timestampsLength = parser.readUInt32();
-		const timestampsOffset = parser.readUInt32();
+		if ( header.version < M2_VERSION_WRATH_OF_THE_LICH_KING ) {
 
-		parser.saveState();
-		parser.moveTo( timestampsOffset );
+			// TODO: Implement track parsing for older M2 assets
 
-		for ( let i = 0; i < timestampsLength; i ++ ) {
+		} else {
 
-			const values = [];
-
-			const entryLength = parser.readUInt32();
-			const entryOffset = parser.readUInt32();
+			const timestampsLength = parser.readUInt32();
+			const timestampsOffset = parser.readUInt32();
 
 			parser.saveState();
-			parser.moveTo( entryOffset );
+			parser.moveTo( timestampsOffset );
 
-			for ( let j = 0; j < entryLength; j ++ ) {
+			for ( let i = 0; i < timestampsLength; i ++ ) {
 
-				values.push( parser.readUInt32() );
+				const values = [];
+
+				const entryLength = parser.readUInt32();
+				const entryOffset = parser.readUInt32();
+
+				parser.saveState();
+				parser.moveTo( entryOffset );
+
+				for ( let j = 0; j < entryLength; j ++ ) {
+
+					values.push( parser.readUInt32() );
+
+				}
+
+				track.timestamps.push( values );
+
+				parser.restoreState();
 
 			}
 
-			track.timestamps.push( values );
-
 			parser.restoreState();
 
-		}
+			// values
 
-		parser.restoreState();
-
-		// values
-
-		const valuesLength = parser.readUInt32();
-		const valuesOffset = parser.readUInt32();
-
-		parser.saveState();
-		parser.moveTo( valuesOffset );
-
-		for ( let i = 0; i < valuesLength; i ++ ) {
-
-			const values = [];
-
-			const entryLength = parser.readUInt32();
-			const entryOffset = parser.readUInt32();
+			const valuesLength = parser.readUInt32();
+			const valuesOffset = parser.readUInt32();
 
 			parser.saveState();
-			parser.moveTo( entryOffset );
+			parser.moveTo( valuesOffset );
 
-			for ( let j = 0; j < entryLength; j ++ ) {
+			for ( let i = 0; i < valuesLength; i ++ ) {
 
-				switch ( type ) {
+				const values = [];
 
-					case 'fixed16':
+				const entryLength = parser.readUInt32();
+				const entryOffset = parser.readUInt32();
 
-						values.push(
-							parser.readInt16() / 0x7fff
-						);
+				parser.saveState();
+				parser.moveTo( entryOffset );
 
-						break;
+				for ( let j = 0; j < entryLength; j ++ ) {
 
-					case 'vec2':
+					switch ( type ) {
 
-						values.push(
-							parser.readFloat32(),
-							parser.readFloat32()
-						);
-
-						break;
-
-					case 'vec3':
-
-						values.push(
-							parser.readFloat32(),
-							parser.readFloat32(),
-							parser.readFloat32()
-						);
-
-						break;
-
-					case 'quatCompressed':
-
-						if ( header.version > M2_VERSION_CLASSIC ) {
+						case 'fixed16':
 
 							values.push(
-								int16ToFloat( parser.readInt16() ),
-								int16ToFloat( parser.readInt16() ),
-								int16ToFloat( parser.readInt16() ),
-								int16ToFloat( parser.readInt16() ),
+								parser.readInt16() / 0x7fff
 							);
 
-						} else {
+							break;
+
+						case 'vec2':
+
+							values.push(
+								parser.readFloat32(),
+								parser.readFloat32()
+							);
+
+							break;
+
+						case 'vec3':
+
+							values.push(
+								parser.readFloat32(),
+								parser.readFloat32(),
+								parser.readFloat32()
+							);
+
+							break;
+
+						case 'quatCompressed':
 
 							values.push(
 								parser.readFloat32(),
@@ -1254,35 +1249,35 @@ class M2Loader extends Loader {
 								parser.readFloat32()
 							);
 
-						}
+							break;
 
-						break;
+						case 'quat':
 
-					case 'quat':
+							values.push(
+								parser.readFloat32(),
+								parser.readFloat32(),
+								parser.readFloat32(),
+								parser.readFloat32()
+							);
 
-						values.push(
-							parser.readFloat32(),
-							parser.readFloat32(),
-							parser.readFloat32(),
-							parser.readFloat32()
-						);
+							break;
 
-						break;
+						default:
+							break;
 
-					default:
-						break;
+					}
 
 				}
 
-			}
+				track.values.push( values );
 
-			track.values.push( values );
+				parser.restoreState();
+
+			}
 
 			parser.restoreState();
 
 		}
-
-		parser.restoreState();
 
 		//
 
@@ -1363,7 +1358,7 @@ class M2Loader extends Loader {
 // const M2_GLOBAL_FLAGS_UNK_3 = 0x1000;
 // const M2_GLOBAL_FLAGS_CHUNKED_ANIM_FILES = 0x2000;
 
-const M2_VERSION_CLASSIC = 256;
+// const M2_VERSION_CLASSIC = 256;
 const M2_VERSION_THE_BURNING_CRUSADE = 263;
 const M2_VERSION_WRATH_OF_THE_LICH_KING = 264;
 // const M2_VERSION_CATACLYSM = 272;
