@@ -24,7 +24,10 @@ import {
 	Skeleton,
 	Vector2,
 	Vector3,
-	VectorKeyframeTrack
+	VectorKeyframeTrack,
+	LinearFilter,
+	LinearMipmapLinearFilter,
+	DataTexture
 } from 'three';
 
 /**
@@ -1749,9 +1752,20 @@ class BLPLoader extends Loader {
 
 			}
 
+		} else if ( header.preferredFormat === BLP_PIXEL_FORMAT_PIXEL_UNSPECIFIED ) {
+
+			texture = new DataTexture( mipmaps[ 0 ].data, header.width, header.height );
+			texture.mipmaps = mipmaps;
+			texture.magFilter = LinearFilter;
+			texture.minFilter = LinearMipmapLinearFilter;
+			texture.center.set( 0.5, 0.5 );
+			texture.needsUpdate = true;
+
 		} else {
 
-			// TODO Handle uncompressed textures
+			// TODO Handle more unsupported pixel formats
+
+			console.error( 'THREE.M2Loader: Unsupported pixel format.', header.preferredFormat );
 
 		}
 
@@ -1781,7 +1795,7 @@ const BLP_PIXEL_FORMAT_PIXEL_DXT3 = 1;
 // const BLP_PIXEL_FORMAT_PIXEL_RGB565 = 5;
 // const BLP_PIXEL_FORMAT_PIXEL_A8 = 6;
 const BLP_PIXEL_FORMAT_PIXEL_DXT5 = 7;
-// const BLP_PIXEL_FORMAT_PIXEL_UNSPECIFIED = 8;
+const BLP_PIXEL_FORMAT_PIXEL_UNSPECIFIED = 8;
 // const BLP_PIXEL_FORMAT_PIXEL_ARGB2565 = 9;
 const BLP_PIXEL_FORMAT_PIXEL_BC5 = 11;
 // const BLP_PIXEL_FORMAT_NUM_PIXEL_FORMATS = 12;
