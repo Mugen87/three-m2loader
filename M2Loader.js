@@ -24,7 +24,10 @@ import {
 	Skeleton,
 	Vector2,
 	Vector3,
-	VectorKeyframeTrack
+	VectorKeyframeTrack,
+	DataTexture,
+	LinearFilter,
+	LinearMipmapLinearFilter
 } from 'three';
 
 /**
@@ -1714,6 +1717,21 @@ class BLPLoader extends Loader {
 
 		}
 
+		header.palette = [];
+
+		for ( let i = 0; i < 256; i ++ ) {
+
+			// BGRA colors
+
+			header.palette.push(
+				parser.readUInt8(),
+				parser.readUInt8(),
+				parser.readUInt8(),
+				parser.readUInt8()
+			);
+
+		}
+
 		// data
 
 		const mipmaps = [];
@@ -1773,6 +1791,47 @@ class BLPLoader extends Loader {
 
 			}
 
+		} else if ( header.preferredFormat === BLP_PIXEL_FORMAT_PIXEL_UNSPECIFIED ) {
+
+			if ( header.colorEncoding === BLP_COLOR_ENCODING_COLOR_PALETTE ) {
+
+				const newMips = [];
+
+				for ( let i = 0; i < mipmaps.length; i ++ ) {
+
+					const mip = mipmaps[ i ];
+
+					const data = new Uint8Array( mip.width * mip.height * 4 );
+
+					for ( let j = 0, k = 0; j < mip.data.length; j ++, k += 4 ) {
+
+						const index = mip.data[ j ];
+
+						data[ k + 0 ] = header.palette[ index * 4 + 2 ];
+						data[ k + 1 ] = header.palette[ index * 4 + 1 ];
+						data[ k + 2 ] = header.palette[ index * 4 + 0 ];
+						data[ k + 3 ] = header.palette[ index * 4 + 3 ];
+
+					}
+
+					newMips.push( { data, width: mip.width, height: mip.height } );
+
+				}
+
+				texture = new DataTexture( newMips[ 0 ].data, header.width, header.height );
+				texture.mipmaps = newMips;
+				texture.magFilter = LinearFilter;
+				texture.minFilter = LinearMipmapLinearFilter;
+				texture.needsUpdate = true;
+
+			} else {
+
+				// TODO Handle more unsupported color encodings
+
+				console.error( 'THREE.M2Loader: Unsupported color encoding.', header.colorEncoding );
+
+			}
+
 		} else {
 
 			// TODO Handle more unsupported pixel formats
@@ -1795,7 +1854,7 @@ class BLPLoader extends Loader {
 }
 
 // const BLP_COLOR_ENCODING_COLOR_JPEG = 0;
-// const BLP_COLOR_ENCODING_COLOR_PALETTE = 1;
+const BLP_COLOR_ENCODING_COLOR_PALETTE = 1;
 // const BLP_COLOR_ENCODING_COLOR_DXT = 2;
 // const BLP_COLOR_ENCODING_ARGB8888 = 3;
 
@@ -1807,7 +1866,7 @@ const BLP_PIXEL_FORMAT_PIXEL_DXT3 = 1;
 // const BLP_PIXEL_FORMAT_PIXEL_RGB565 = 5;
 // const BLP_PIXEL_FORMAT_PIXEL_A8 = 6;
 const BLP_PIXEL_FORMAT_PIXEL_DXT5 = 7;
-// const BLP_PIXEL_FORMAT_PIXEL_UNSPECIFIED = 8;
+const BLP_PIXEL_FORMAT_PIXEL_UNSPECIFIED = 8;
 // const BLP_PIXEL_FORMAT_PIXEL_ARGB2565 = 9;
 const BLP_PIXEL_FORMAT_PIXEL_BC5 = 11;
 // const BLP_PIXEL_FORMAT_NUM_PIXEL_FORMATS = 12;
