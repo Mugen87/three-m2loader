@@ -1279,12 +1279,17 @@ class M2Loader extends Loader {
 
 						case 'quatCompressed':
 
-							values.push(
-								parser.readFloat32(),
-								parser.readFloat32(),
-								parser.readFloat32(),
-								parser.readFloat32()
-							);
+							let x = parser.readInt16();
+							let y = parser.readInt16();
+							let z = parser.readInt16();
+							let w = parser.readInt16();
+
+							x = ( x < 0 ? x + 32768 : x - 32767 ) / 32767;
+							y = ( y < 0 ? y + 32768 : y - 32767 ) / 32767;
+							z = ( z < 0 ? z + 32768 : z - 32767 ) / 32767;
+							w = ( w < 0 ? w + 32768 : w - 32767 ) / 32767;
+
+							values.push( x, y, z, w );
 
 							break;
 
