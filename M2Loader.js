@@ -237,6 +237,8 @@ class M2Loader extends Loader {
 		const group = new Group();
 		group.name = name;
 
+		const animationMap = new Map();
+
 		// meshes
 
 		const batches = skinData.batches;
@@ -245,9 +247,14 @@ class M2Loader extends Loader {
 
 			const batch = batches[ i ];
 
-			const animations = [];
 			const geometry = geometries[ batch.skinSectionIndex ];
 			const material = materials[ batch.materialIndex ];
+
+			if ( animationMap.has( material ) === false ) {
+
+				animationMap.set( material, new Set() ); // store animations targeting this material
+
+			}
 
 			// texture
 
@@ -256,6 +263,12 @@ class M2Loader extends Loader {
 			if ( textureIndex !== undefined ) {
 
 				material.map = textures[ textureIndex ];
+
+				if ( animationMap.has( material.map ) === false ) {
+
+					animationMap.set( material.map, new Set() ); // store animations targeting this texture
+
+				}
 
 			}
 
@@ -267,9 +280,10 @@ class M2Loader extends Loader {
 
 				const textureTransform = textureTransforms[ textureTransformIndex ];
 
-				if ( textureTransform !== undefined ) {
+				if ( textureTransform !== undefined && textureTransform.length > 0 ) {
 
-					animations.push( ...textureTransform );
+					const textureAnimations = animationMap.get( material.map );
+					textureAnimations.add( ...textureTransform );
 
 				}
 
@@ -283,9 +297,10 @@ class M2Loader extends Loader {
 
 				const textureWeight = textureWeights[ textureWeightIndex ];
 
-				if ( textureWeight !== undefined ) {
+				if ( textureWeight !== undefined && textureWeight.length > 0 ) {
 
-					animations.push( ...textureWeight );
+					const materialAnimations = animationMap.get( material );
+					materialAnimations.add( ...textureWeight );
 
 				}
 
@@ -294,11 +309,11 @@ class M2Loader extends Loader {
 			// mesh
 
 			const mesh = new Mesh( geometry, material );
-			mesh.animations.push( ...animations );
-
 			group.add( mesh );
 
 		}
+
+		group.userData.animationMap = animationMap;
 
 		return group;
 
@@ -555,7 +570,7 @@ class M2Loader extends Loader {
 
 					if ( keyframes[ j ] === undefined ) keyframes[ j ] = [];
 
-					keyframes[ j ].push( new VectorKeyframeTrack( '.map.offset', times, values ) );
+					keyframes[ j ].push( new VectorKeyframeTrack( '.offset', times, values ) );
 
 				}
 
@@ -612,7 +627,7 @@ class M2Loader extends Loader {
 
 					if ( keyframes[ j ] === undefined ) keyframes[ j ] = [];
 
-					keyframes[ j ].push( new NumberKeyframeTrack( '.map.rotation', times, values ) );
+					keyframes[ j ].push( new NumberKeyframeTrack( '.rotation', times, values ) );
 
 				}
 

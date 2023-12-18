@@ -137,19 +137,25 @@
 					m2Scene = m2;
 					scene.add( m2Scene );
 
-					m2Scene.traverse( function ( object ) {
+					// animations
 
-						if ( object.animations.length > 0 ) {
+					const animationMap = m2.userData.animationMap;
 
-							const clip = object.animations[ 0 ];
-							const mixer = new THREE.AnimationMixer( object.material );
+					for ( const entry of animationMap ) {
+
+						const [ object, animations ] = entry;
+
+						const mixer = new THREE.AnimationMixer( object );
+						mixers.push( mixer );
+
+						for ( const clip of animations ) {
+
 							const action = mixer.clipAction( clip );
 							action.play();
-							mixers.push( mixer );
 
 						}
-
-					} );
+			
+					}
 
 				} );
 
