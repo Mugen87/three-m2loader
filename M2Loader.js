@@ -28,7 +28,9 @@ import {
 	DataTexture,
 	LinearFilter,
 	LinearMipmapLinearFilter,
-	SRGBColorSpace
+	SRGBColorSpace,
+	Uint8BufferAttribute,
+	Vector4
 } from 'three';
 
 /**
@@ -332,6 +334,8 @@ class M2Loader extends Loader {
 		const position = [];
 		const normal = [];
 		const uv = [];
+		const skinIndex = [];
+		const skinWeight = [];
 
 		for ( let i = 0; i < localVertexList.length; i ++ ) {
 
@@ -343,12 +347,16 @@ class M2Loader extends Loader {
 			position.push( vertex.pos.x, vertex.pos.y, vertex.pos.z );
 			normal.push( vertex.normal.x, vertex.normal.y, vertex.normal.z );
 			uv.push( vertex.texCoords[ 0 ].x, vertex.texCoords[ 0 ].y );
+			skinIndex.push( vertex.boneIndices.x, vertex.boneIndices.y, vertex.boneIndices.z, vertex.boneIndices.w );
+			skinWeight.push( vertex.boneWeights.x, vertex.boneWeights.y, vertex.boneWeights.z, vertex.boneWeights.w );
 
 		}
 
 		const positionAttribute = new Float32BufferAttribute( position, 3 );
 		const normalAttribute = new Float32BufferAttribute( normal, 3 );
 		const uvAttribute = new Float32BufferAttribute( uv, 2 );
+		const skinIndexAttribute = new Uint8BufferAttribute( skinIndex, 4 );
+		const skinWeightAttribute = new Uint8BufferAttribute( skinWeight, 4, true );
 
 		// geometries
 
@@ -364,6 +372,8 @@ class M2Loader extends Loader {
 			geometry.setAttribute( 'position', positionAttribute );
 			geometry.setAttribute( 'normal', normalAttribute );
 			geometry.setAttribute( 'uv', uvAttribute );
+			geometry.setAttribute( 'skinIndex', skinIndexAttribute );
+			geometry.setAttribute( 'skinWeight', skinWeightAttribute );
 			geometry.setIndex( index );
 
 			geometries.push( geometry );
@@ -1279,6 +1289,8 @@ class M2Loader extends Loader {
 
 						case 'quatCompressed':
 
+							// conversion from short to float, see https://wowdev.wiki/Quaternion_values_and_2.x
+
 							let x = parser.readInt16();
 							let y = parser.readInt16();
 							let z = parser.readInt16();
@@ -1358,19 +1370,15 @@ class M2Loader extends Loader {
 		vertex.pos.y = parser.readFloat32();
 		vertex.pos.z = parser.readFloat32();
 
-		vertex.boneWeights.push(
-			parser.readUInt8(),
-			parser.readUInt8(),
-			parser.readUInt8(),
-			parser.readUInt8()
-		);
+		vertex.boneWeights.x = parser.readUInt8();
+		vertex.boneWeights.y = parser.readUInt8();
+		vertex.boneWeights.z = parser.readUInt8();
+		vertex.boneWeights.w = parser.readUInt8();
 
-		vertex.boneIndices.push(
-			parser.readUInt8(),
-			parser.readUInt8(),
-			parser.readUInt8(),
-			parser.readUInt8()
-		);
+		vertex.boneIndices.x = parser.readUInt8();
+		vertex.boneIndices.y = parser.readUInt8();
+		vertex.boneIndices.z = parser.readUInt8();
+		vertex.boneIndices.w = parser.readUInt8();
 
 		vertex.normal.x = parser.readFloat32();
 		vertex.normal.y = parser.readFloat32();
@@ -2123,8 +2131,8 @@ class M2Vertex {
 	constructor() {
 
 		this.pos = new Vector3();
-		this.boneWeights = [];
-		this.boneIndices = [];
+		this.boneWeights = new Vector4();
+		this.boneIndices = new Vector4();
 		this.normal = new Vector3();
 		this.texCoords = [ new Vector2(), new Vector2() ];
 
