@@ -146,10 +146,10 @@
 
 						const [ object, animations ] = entry;
 
-						const mixer = new THREE.AnimationMixer( object );
-						mixers.push( mixer );
-
 						if ( animations.size > 0 ) {
+
+							const mixer = new THREE.AnimationMixer( object );
+							mixers.push( mixer );
 
 							const clip = animations.values().next().value; // play first animation
 							const action = mixer.clipAction( clip );
