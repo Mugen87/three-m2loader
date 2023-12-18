@@ -47,7 +47,8 @@
 				'flower2/bush_peacebloom01.m2',
 				'fountain/gilneas_fountain01.m2',
 				'barrel/7ne_nightelf_barrel01.m2',
-				'spell/g_scourgerunecirclecrystal.m2'
+				'spell/g_scourgerunecirclecrystal.m2',
+				'airelemental/airelemental.m2'
 			];
 
 			let camera, scene, renderer, controls, loader, clock;
@@ -148,8 +149,9 @@
 						const mixer = new THREE.AnimationMixer( object );
 						mixers.push( mixer );
 
-						for ( const clip of animations ) {
+						if ( animations.size > 0 ) {
 
+							const clip = animations.values().next().value; // play first animation
 							const action = mixer.clipAction( clip );
 							action.play();
 
