@@ -20,8 +20,8 @@
 		<script type="importmap">
 			{
 				"imports": {
-					"three": "https://unpkg.com/three@0.144/build/three.module.js",
-					"three/addons/": "https://unpkg.com/three@0.144/examples/jsm/"
+					"three": "https://unpkg.com/three@0.159/build/three.module.js",
+					"three/addons/": "https://unpkg.com/three@0.159/examples/jsm/"
 				}
 			}
 		</script>
@@ -71,10 +71,10 @@
 
 				clock = new THREE.Clock();
 
-				const ambientLight = new THREE.AmbientLight( 0xffffff, 0.6 );
+				const ambientLight = new THREE.AmbientLight( 0xffffff, 1.5 );
 				scene.add( ambientLight );
 
-				const directionalLight = new THREE.DirectionalLight( 0xffffff );
+				const directionalLight = new THREE.DirectionalLight( 0xffffff, 3 );
 				directionalLight.position.set( 10, 10, 0 );
 				scene.add( directionalLight );
 
@@ -111,6 +111,14 @@
 
 						scene.remove( m2Scene );
 
+						for ( let i = 0; i < mixers.length; i ++ ) {
+
+							mixers[ i ].stopAllAction();
+
+						}
+
+						mixers.length = 0;
+
 					}
 
 					loadAsset( value );
@@ -134,7 +142,7 @@
 						if ( object.animations.length > 0 ) {
 
 							const clip = object.animations[ 0 ];
-							const mixer = new THREE.AnimationMixer( object );
+							const mixer = new THREE.AnimationMixer( object.material );
 							const action = mixer.clipAction( clip );
 							action.play();
 							mixers.push( mixer );

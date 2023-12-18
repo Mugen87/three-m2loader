@@ -27,7 +27,8 @@ import {
 	VectorKeyframeTrack,
 	DataTexture,
 	LinearFilter,
-	LinearMipmapLinearFilter
+	LinearMipmapLinearFilter,
+	SRGBColorSpace
 } from 'three';
 
 /**
@@ -554,7 +555,7 @@ class M2Loader extends Loader {
 
 					if ( keyframes[ j ] === undefined ) keyframes[ j ] = [];
 
-					keyframes[ j ].push( new VectorKeyframeTrack( '.material.map.offset', times, values ) );
+					keyframes[ j ].push( new VectorKeyframeTrack( '.map.offset', times, values ) );
 
 				}
 
@@ -611,7 +612,7 @@ class M2Loader extends Loader {
 
 					if ( keyframes[ j ] === undefined ) keyframes[ j ] = [];
 
-					keyframes[ j ].push( new NumberKeyframeTrack( '.material.map.rotation', times, values ) );
+					keyframes[ j ].push( new NumberKeyframeTrack( '.map.rotation', times, values ) );
 
 				}
 
@@ -674,7 +675,7 @@ class M2Loader extends Loader {
 
 					}
 
-					opacityKeyFrames.push( new NumberKeyframeTrack( '.material.opacity', times, values ) );
+					opacityKeyFrames.push( new NumberKeyframeTrack( '.opacity', times, values ) );
 
 				}
 
@@ -1765,6 +1766,7 @@ class BLPLoader extends Loader {
 			header.preferredFormat === BLP_PIXEL_FORMAT_PIXEL_BC5 ) {
 
 			texture = new CompressedTexture( mipmaps, header.width, header.height );
+			texture.colorSpace = SRGBColorSpace;
 			texture.center.set( 0.5, 0.5 );
 			texture.needsUpdate = true;
 
@@ -1819,6 +1821,7 @@ class BLPLoader extends Loader {
 				}
 
 				texture = new DataTexture( newMips[ 0 ].data, header.width, header.height );
+				texture.colorSpace = SRGBColorSpace;
 				texture.mipmaps = newMips;
 				texture.magFilter = LinearFilter;
 				texture.minFilter = LinearMipmapLinearFilter;
