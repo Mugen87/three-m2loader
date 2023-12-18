@@ -262,7 +262,7 @@ class M2Loader extends Loader {
 
 			if ( textureIndex !== undefined ) {
 
-				material.map = textures[ textureIndex ];
+				material.map = textures[ textureIndex ].clone(); // cloning is required since the same texture might be transformed/animated differently
 
 				if ( animationMap.has( material.map ) === false ) {
 
