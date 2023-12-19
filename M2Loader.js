@@ -4,11 +4,17 @@ import {
 	Bone,
 	BufferGeometry,
 	CompressedTexture,
+	DataTexture,
 	DoubleSide,
 	FileLoader,
 	Float32BufferAttribute,
 	FrontSide,
 	Group,
+	InterpolateLinear,
+	InterpolateSmooth,
+	InterpolateDiscrete,
+	LinearFilter,
+	LinearMipmapLinearFilter,
 	Loader,
 	LoaderUtils,
 	Mesh,
@@ -16,24 +22,20 @@ import {
 	MeshLambertMaterial,
 	NumberKeyframeTrack,
 	Quaternion,
+	QuaternionKeyframeTrack,
 	RepeatWrapping,
 	RGBA_S3TC_DXT1_Format,
 	RGBA_S3TC_DXT3_Format,
 	RGBA_S3TC_DXT5_Format,
 	RGBA_BPTC_Format,
 	Skeleton,
-	Vector2,
-	Vector3,
-	VectorKeyframeTrack,
-	DataTexture,
-	LinearFilter,
-	LinearMipmapLinearFilter,
+	SkinnedMesh,
 	SRGBColorSpace,
 	Uint8BufferAttribute,
+	Vector2,
+	Vector3,
 	Vector4,
-	InterpolateLinear,
-	InterpolateSmooth,
-	InterpolateDiscrete
+	VectorKeyframeTrack
 } from 'three';
 
 /**
@@ -183,17 +185,17 @@ class M2Loader extends Loader {
 		// build scene
 
 		const geometries = this._buildGeometries( skinData, vertices );
-		const skeleton = this._buildSkeleton( boneDefinitions ); // eslint-disable-line no-unused-vars
+		const skeleton = this._buildSkeleton( boneDefinitions, globalSequences );
 		const materials = this._buildMaterials( materialDefinitions );
 		const textureTransforms = this._buildTextureTransforms( textureTransformDefinitions, globalSequences );
 		const textureWeights = this._buildTextureWeights( textureWeightDefinitions, globalSequences );
-		const group = this._buildObjects( name, geometries, materials, textures, textureTransforms, textureWeights, skinData, lookupTables );
+		const group = this._buildObjects( name, geometries, skeleton, materials, textures, textureTransforms, textureWeights, skinData, lookupTables );
 
 		return group;
 
 	}
 
-	_buildObjects( name, geometries, materials, textures, textureTransforms, textureWeights, skinData, lookupTables ) {
+	_buildObjects( name, geometries, skeleton, materials, textures, textureTransforms, textureWeights, skinData, lookupTables ) {
 
 		const group = new Group();
 		group.name = name;
@@ -269,7 +271,27 @@ class M2Loader extends Loader {
 
 			// mesh
 
-			const mesh = new Mesh( geometry, material );
+			let mesh;
+
+			if ( skeleton !== null ) {
+
+				mesh = new SkinnedMesh( geometry, material );
+				mesh.bind( skeleton );
+
+				for ( let bone of skeleton.bones ) {
+
+					if ( bone.parent === null ) mesh.add( bone );
+
+				}
+
+				animationMap.set( group, skeleton.userData.animations );
+
+			} else {
+
+				mesh = new Mesh( geometry, material );
+
+			}
+
 			group.add( mesh );
 
 		}
@@ -401,7 +423,7 @@ class M2Loader extends Loader {
 
 	}
 
-	_buildSkeleton( boneDefinitions ) {
+	_buildSkeleton( boneDefinitions, globalSequences ) {
 
 		// TODO: Find out a better way for detecting static models
 		// Problem: Even static models have some bone definitions
@@ -409,121 +431,191 @@ class M2Loader extends Loader {
 		if ( boneDefinitions.length < 8 ) return null;
 
 		const bones = [];
+		const animations = [];
+		const keyframes = [];
+		const globalKeyframes = [];
 
 		for ( let i = 0; i < boneDefinitions.length; i ++ ) {
 
 			const boneDefinition = boneDefinitions[ i ];
+
 			const bone = new Bone();
+			bone.pivot = boneDefinition.pivot; // TODO: three.js does not support pivot points so this hack is required as well overwriting Object3D.updateMatrix()
 
 			bones.push( bone );
 
-			const parentIndex = boneDefinition.parentBone;
+			// build hierarchy
 
+			const parentIndex = boneDefinition.parentBone;
 			if ( parentIndex !== - 1 ) bones[ parentIndex ].add( bone );
 
-		}
+			// animations
 
-		return new Skeleton( bones );
+			const translationData = boneDefinition.translation;
+			const rotationData = boneDefinition.rotation;
 
-	}
+			for ( let j = 0; j < translationData.timestamps.length; j ++ ) {
 
-	_loadSkin( header, parser, skinLoader, name, chunks ) {
+				let maxTimeStamp = null;
 
-		let promise;
+				if ( translationData.globalSequence >= 0 ) {
 
-		if ( header.version <= M2_VERSION_THE_BURNING_CRUSADE ) {
-
-			promise = Promise.resolve( this._readEmbeddedSkinData( parser, header ) );
-
-		} else {
-
-			let filename = ( name + '00.skin' ).toLowerCase(); // default skin name based on .m2 file
-
-			const skinFileDataIDs = chunks.get( 'SFID' );
-
-			if ( skinFileDataIDs !== undefined ) {
-
-				filename = skinFileDataIDs[ 0 ] + '.skin';
-
-			}
-
-			promise = new Promise( ( resolve, reject ) => {
-
-				skinLoader.load( filename, resolve, undefined, () => {
-
-					reject( new Error( 'THREE.M2Loader: Failed to load skin file: ' + filename ) );
-
-				} );
-
-			} );
-
-		}
-
-		return promise;
-
-	}
-
-	_loadTextures( textureDefinitions, loader, name, chunks ) {
-
-		const promises = [];
-
-		for ( let i = 0; i < textureDefinitions.length; i ++ ) {
-
-			const textureDefinition = textureDefinitions[ i ];
-			let filename = textureDefinition.filename;
-
-			// if the filename is empty, use the FileDataID field from the TXID chunk
-
-			if ( filename === '' ) {
-
-				const textureFileDataIds = chunks.get( 'TXID' );
-
-				if ( textureFileDataIds !== undefined ) {
-
-					filename = textureFileDataIds[ i ] + '.blp';
+					maxTimeStamp = globalSequences[ translationData.globalSequence ] / 1000;
 
 				}
 
-			}
+				const ti = translationData.timestamps[ j ];
+				const vi = translationData.values[ j ];
 
-			// fallback: if the first texture has an empty name, use .m2 name
+				const times = [];
+				const values = [];
 
-			if ( filename === '' ) {
+				// ignore empty tracks
 
-				if ( i === 0 ) {
+				if ( ti.length <= 1 ) continue;
 
-					filename = ( name + '.blp' ).toLowerCase();
+
+				// times
+
+				for ( let k = 0; k < ti.length; k ++ ) {
+
+					times.push( ti[ k ] / 1000 );
+
+				}
+
+				if ( maxTimeStamp !== null ) {
+
+					times[ times.length - 1 ] = maxTimeStamp;
+
+				}
+
+				// values
+
+				for ( let k = 0; k < vi.length; k += 3 ) {
+
+					values.push( vi[ k ] );
+					values.push( vi[ k + 1 ] );
+					values.push( vi[ k + 2 ] );
+
+				}
+
+				// interpolation type
+
+				const interpolation = this._getInterpolation( translationData.interpolationType );
+
+				// keyframe track
+
+				if ( maxTimeStamp !== null ) {
+
+					if ( globalKeyframes[ j ] === undefined ) globalKeyframes[ j ] = [];
+
+					globalKeyframes[ j ].push( new VectorKeyframeTrack( bone.uuid + '.position', times, values, interpolation ) );
+
 
 				} else {
 
-					continue;
+					if ( keyframes[ j ] === undefined ) keyframes[ j ] = [];
+
+					keyframes[ j ].push( new VectorKeyframeTrack( bone.uuid + '.position', times, values, interpolation ) );
 
 				}
 
 			}
 
-			//
+			for ( let j = 0; j < rotationData.timestamps.length; j ++ ) {
 
-			const promise = new Promise( ( resolve, reject ) => {
+				let maxTimeStamp = null;
 
-				const config = {
-					url: filename,
-					flags: textureDefinition.flags
-				};
+				if ( rotationData.globalSequence >= 0 ) {
 
-				loader.load( config, resolve, undefined, () => {
+					maxTimeStamp = globalSequences[ rotationData.globalSequence ] / 1000;
 
-					reject( new Error( 'THREE.M2Loader: Failed to load texture: ' + config.url ) );
+				}
 
-				} );
+				const ti = rotationData.timestamps[ j ];
+				const vi = rotationData.values[ j ];
 
-			} );
+				const times = [];
+				const values = [];
 
-			promises.push( promise );
+				// ignore empty tracks
+
+				if ( ti.length <= 1 ) continue;
+
+
+				// times
+
+				for ( let k = 0; k < ti.length; k ++ ) {
+
+					times.push( ti[ k ] / 1000 );
+
+				}
+
+				if ( maxTimeStamp !== null ) {
+
+					times[ times.length - 1 ] = maxTimeStamp;
+
+				}
+
+				// values
+
+				for ( let k = 0; k < vi.length; k += 4 ) {
+
+					values.push( vi[ k ] );
+					values.push( vi[ k + 1 ] );
+					values.push( vi[ k + 2 ] );
+					values.push( vi[ k + 3 ] );
+
+				}
+
+				// interpolation type
+
+				const interpolation = this._getInterpolation( rotationData.interpolationType );
+
+				// keyframe track
+
+				if ( maxTimeStamp !== null ) {
+
+					if ( globalKeyframes[ j ] === undefined ) globalKeyframes[ j ] = [];
+
+					globalKeyframes[ j ].push( new QuaternionKeyframeTrack( bone.uuid + '.quaternion', times, values, interpolation ) );
+
+
+				} else {
+
+					if ( keyframes[ j ] === undefined ) keyframes[ j ] = [];
+
+					keyframes[ j ].push( new QuaternionKeyframeTrack( bone.uuid + '.quaternion', times, values, interpolation ) );
+
+				}
+
+			}
 
 		}
 
-		return promises;
+		for ( let j = 0; j < keyframes.length; j ++ ) {
+
+			if ( keyframes[ j ] === undefined ) continue;
+
+			const clip = new AnimationClip( 'SkeletonAnimation_' + j, - 1, [ ... keyframes[ j ] ] );
+			animations.push( clip );
+
+		}
+
+		for ( let j = 0; j < globalKeyframes.length; j ++ ) {
+
+			if ( globalKeyframes[ j ] === undefined ) continue;
+
+			const clip = new AnimationClip( 'GlobalSkeletonAnimation_' + j, - 1, [ ... globalKeyframes[ j ] ] );
+			animations.push( clip );
+
+		}
+
+		const skeleton = new Skeleton( bones );
+		skeleton.userData = {};
+		skeleton.userData.animations = animations;
+
+		return skeleton;
 
 	}
 
@@ -593,12 +685,7 @@ class M2Loader extends Loader {
 
 					// interpolation type
 
-					let interpolation;
-
-					if ( translationData.interpolationType === 0 ) interpolation = InterpolateDiscrete;
-					else if ( translationData.interpolationType === 1 ) interpolation = InterpolateLinear;
-					else if ( translationData.interpolationType === 2 || translationData.interpolationType === 3 ) interpolation = InterpolateSmooth;
-					else console.warn( 'THREE.M2Loader: Unsupported interpolation type.' );
+					const interpolation = this._getInterpolation( translationData.interpolationType );
 
 					// keyframe track
 
@@ -686,12 +773,7 @@ class M2Loader extends Loader {
 
 					// interpolation type
 
-					let interpolation;
-
-					if ( rotationData.interpolationType === 0 ) interpolation = InterpolateDiscrete;
-					else if ( rotationData.interpolationType === 1 ) interpolation = InterpolateLinear;
-					else if ( rotationData.interpolationType === 2 || rotationData.interpolationType === 3 ) interpolation = InterpolateSmooth;
-					else console.warn( 'THREE.M2Loader: Unsupported interpolation type.' );
+					const interpolation = this._getInterpolation( rotationData.interpolationType );
 
 					// keyframe track
 
@@ -795,12 +877,7 @@ class M2Loader extends Loader {
 
 					// interpolation type
 
-					let interpolation;
-
-					if ( textureWeightDefinition.interpolationType === 0 ) interpolation = InterpolateDiscrete;
-					else if ( textureWeightDefinition.interpolationType === 1 ) interpolation = InterpolateLinear;
-					else if ( textureWeightDefinition.interpolationType === 2 || textureWeightDefinition.interpolationType === 3 ) interpolation = InterpolateSmooth;
-					else console.warn( 'THREE.M2Loader: Unsupported interpolation type.' );
+					const interpolation = this._getInterpolation( textureWeightDefinition.interpolationType );
 
 					// keyframe track
 
@@ -837,6 +914,136 @@ class M2Loader extends Loader {
 		}
 
 		return textureWeights;
+
+	}
+
+	_getInterpolation( type ) {
+
+		let interpolation;
+
+		switch ( type ) {
+
+			case 0:
+				interpolation = InterpolateDiscrete;
+				break;
+
+			case 1:
+				interpolation = InterpolateLinear;
+				break;
+
+			case 2:
+			case 3:
+				interpolation = InterpolateSmooth;
+				break;
+
+			default:
+				console.warn( 'THREE.M2Loader: Unsupported interpolation type.' );
+				interpolation = InterpolateLinear; // fallback
+				break;
+
+		}
+
+		return interpolation;
+
+	}
+
+	_loadSkin( header, parser, skinLoader, name, chunks ) {
+
+		let promise;
+
+		if ( header.version <= M2_VERSION_THE_BURNING_CRUSADE ) {
+
+			promise = Promise.resolve( this._readEmbeddedSkinData( parser, header ) );
+
+		} else {
+
+			let filename = ( name + '00.skin' ).toLowerCase(); // default skin name based on .m2 file
+
+			const skinFileDataIDs = chunks.get( 'SFID' );
+
+			if ( skinFileDataIDs !== undefined ) {
+
+				filename = skinFileDataIDs[ 0 ] + '.skin';
+
+			}
+
+			promise = new Promise( ( resolve, reject ) => {
+
+				skinLoader.load( filename, resolve, undefined, () => {
+
+					reject( new Error( 'THREE.M2Loader: Failed to load skin file: ' + filename ) );
+
+				} );
+
+			} );
+
+		}
+
+		return promise;
+
+	}
+
+	_loadTextures( textureDefinitions, loader, name, chunks ) {
+
+		const promises = [];
+
+		for ( let i = 0; i < textureDefinitions.length; i ++ ) {
+
+			const textureDefinition = textureDefinitions[ i ];
+			let filename = textureDefinition.filename;
+
+			// if the filename is empty, use the FileDataID field from the TXID chunk
+
+			if ( filename === '' ) {
+
+				const textureFileDataIds = chunks.get( 'TXID' );
+
+				if ( textureFileDataIds !== undefined ) {
+
+					filename = textureFileDataIds[ i ] + '.blp';
+
+				}
+
+			}
+
+			// fallback: if the first texture has an empty name, use .m2 name
+
+			if ( filename === '' ) {
+
+				if ( i === 0 ) {
+
+					filename = ( name + '.blp' ).toLowerCase();
+
+				} else {
+
+					continue;
+
+				}
+
+			}
+
+			//
+
+			const promise = new Promise( ( resolve, reject ) => {
+
+				const config = {
+					url: filename,
+					flags: textureDefinition.flags
+				};
+
+				loader.load( config, resolve, undefined, () => {
+
+					reject( new Error( 'THREE.M2Loader: Failed to load texture: ' + config.url ) );
+
+				} );
+
+			} );
+
+			promises.push( promise );
+
+		}
+
+		return promises;
 
 	}
 
