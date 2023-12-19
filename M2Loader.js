@@ -250,11 +250,11 @@ class M2Loader extends Loader {
 			const batch = batches[ i ];
 
 			const geometry = geometries[ batch.skinSectionIndex ];
-			const material = materials[ batch.materialIndex ];
+			const material = materials[ batch.materialIndex ].clone(); // cloning is required since the same material might be animated differently
 
 			if ( animationMap.has( material ) === false ) {
 
-				animationMap.set( material, new Set() ); // store animations targeting this material
+				animationMap.set( material, [] ); // store animations targeting this material
 
 			}
 
@@ -264,11 +264,11 @@ class M2Loader extends Loader {
 
 			if ( textureIndex !== undefined ) {
 
-				material.map = textures[ textureIndex ].clone(); // cloning is required since the same texture might be transformed/animated differently
+				material.map = textures[ textureIndex ].clone(); // cloning is required since the same texture might be animated differently
 
 				if ( animationMap.has( material.map ) === false ) {
 
-					animationMap.set( material.map, new Set() ); // store animations targeting this texture
+					animationMap.set( material.map, [] ); // store animations targeting this texture
 
 				}
 
@@ -285,7 +285,7 @@ class M2Loader extends Loader {
 				if ( textureTransform !== undefined && textureTransform.length > 0 ) {
 
 					const textureAnimations = animationMap.get( material.map );
-					textureAnimations.add( ...textureTransform );
+					textureAnimations.push( ...textureTransform );
 
 				}
 
@@ -302,7 +302,7 @@ class M2Loader extends Loader {
 				if ( textureWeight !== undefined && textureWeight.length > 0 ) {
 
 					const materialAnimations = animationMap.get( material );
-					materialAnimations.add( ...textureWeight );
+					materialAnimations.push( ...textureWeight );
 
 				}
 

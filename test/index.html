@@ -138,20 +138,23 @@
 					m2Scene = m2;
 					scene.add( m2Scene );
 
-					// animations
+					// animations (optional)
 
 					const animationMap = m2.userData.animationMap;
 
 					for ( const entry of animationMap ) {
 
+						// "object" represents an animated three.js entity like a mesh, material or texture
+						// "animations" represents a unique collection of animation clips
+
 						const [ object, animations ] = entry;
 
-						if ( animations.size > 0 ) {
+						if ( animations.length > 0 ) {
 
 							const mixer = new THREE.AnimationMixer( object );
 							mixers.push( mixer );
 
-							const clip = animations.values().next().value; // play first animation
+							const clip = animations[ 0 ]; // play first animation
 							const action = mixer.clipAction( clip );
 							action.play();
 
