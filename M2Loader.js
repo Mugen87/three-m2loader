@@ -440,7 +440,7 @@ class M2Loader extends Loader {
 			const boneDefinition = boneDefinitions[ i ];
 
 			const bone = new Bone();
-			bone.pivot = boneDefinition.pivot; // TODO: three.js does not support pivot points so this hack is required as well overwriting Object3D.updateMatrix()
+			bone.pivot = boneDefinition.pivot; // TODO: three.js does not support pivot points so this hack is required as well as overwriting Object3D.updateMatrix()
 
 			bones.push( bone );
 
