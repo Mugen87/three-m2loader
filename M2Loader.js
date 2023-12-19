@@ -278,7 +278,7 @@ class M2Loader extends Loader {
 				mesh = new SkinnedMesh( geometry, material );
 				mesh.bind( skeleton );
 
-				for ( let bone of skeleton.bones ) {
+				for ( const bone of skeleton.bones ) {
 
 					if ( bone.parent === null ) mesh.add( bone );
 

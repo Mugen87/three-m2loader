@@ -38,11 +38,11 @@
 
 				if ( this.pivot && this.pivot.isVector3 ) {
 
-					var px = this.pivot.x;
-					var py = this.pivot.y;
-					var pz = this.pivot.z;
+					const px = this.pivot.x;
+					const py = this.pivot.y;
+					const pz = this.pivot.z;
 
-					var te = this.matrix.elements;
+					const te = this.matrix.elements;
 
 					te[ 12 ] += px - te[ 0 ] * px - te[ 4 ] * py - te[ 8 ] * pz;
 					te[ 13 ] += py - te[ 1 ] * px - te[ 5 ] * py - te[ 9 ] * pz;
@@ -86,9 +86,6 @@
 
 			function init() {
 
-				const container = document.createElement( 'div' );
-				document.body.appendChild( container );
-
 				camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 0.1, 50 );
 				camera.position.set( 4, 2, 4 );
 
@@ -109,7 +106,7 @@
 				renderer = new THREE.WebGLRenderer( { antialias: true } );
 				renderer.setPixelRatio( window.devicePixelRatio );
 				renderer.setSize( window.innerWidth, window.innerHeight );
-				container.appendChild( renderer.domElement );
+				document.body.appendChild( renderer.domElement );
 
 				controls = new OrbitControls( camera, renderer.domElement );
 				controls.minDistance = 2;
