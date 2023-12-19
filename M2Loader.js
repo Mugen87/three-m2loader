@@ -30,7 +30,10 @@ import {
 	LinearMipmapLinearFilter,
 	SRGBColorSpace,
 	Uint8BufferAttribute,
-	Vector4
+	Vector4,
+	InterpolateLinear,
+	InterpolateSmooth,
+	InterpolateDiscrete
 } from 'three';
 
 /**
@@ -69,11 +72,7 @@ class M2Loader extends Loader {
 
 			try {
 
-				this.parse( buffer, url, function ( object ) {
-
-					onLoad( object );
-
-				} );
+				this.parse( buffer, url ).then( onLoad );
 
 			} catch ( e ) {
 
@@ -103,7 +102,7 @@ class M2Loader extends Loader {
 	* @param {onLoad} onLoad - A callback function executed when the asset has been loaded.
 	* @param {onError} onError - A callback function executed when an error occurs.
 	*/
-	parse( buffer, url, onLoad, onError ) {
+	async parse( buffer, url ) {
 
 		const parser = new BinaryParser( buffer );
 
@@ -153,7 +152,8 @@ class M2Loader extends Loader {
 		const textureDefinitions = this._readTextureDefinitions( parser, header );
 		const textureTransformDefinitions = this._readTextureTransformDefinitions( parser, header );
 		const textureWeightDefinitions = this._readTextureWeightDefinitions( parser, header );
-		// const boneDefinitions = this._readBoneDefinitions( parser, header );
+		const globalSequences = this._readGlobalSequences( parser, header ); // eslint-disable-line no-unused-vars
+		const boneDefinitions = this._readBoneDefinitions( parser, header );
 
 		// lookup tables
 
@@ -175,62 +175,21 @@ class M2Loader extends Loader {
 		skinLoader.setPath( resourcePath );
 		skinLoader.setHeader( header );
 
-		// textures
+		// load textures and skin data asynchronously
 
-		const texturePromises = this._buildTextures( textureDefinitions, textureLoader, name, chunks );
+		const textures = await Promise.all( this._loadTextures( textureDefinitions, textureLoader, name, chunks ) );
+		const skinData = await this._loadSkin( header, parser, skinLoader, name, chunks );
 
-		// skins
+		// build scene
 
-		Promise.all( texturePromises ).then( ( textures ) => {
+		const geometries = this._buildGeometries( skinData, vertices );
+		const skeleton = this._buildSkeleton( boneDefinitions ); // eslint-disable-line no-unused-vars
+		const materials = this._buildMaterials( materialDefinitions );
+		const textureTransforms = this._buildTextureTransforms( textureTransformDefinitions, globalSequences );
+		const textureWeights = this._buildTextureWeights( textureWeightDefinitions, globalSequences );
+		const group = this._buildObjects( name, geometries, materials, textures, textureTransforms, textureWeights, skinData, lookupTables );
 
-			// skins
-
-			let promise;
-
-			if ( header.version <= M2_VERSION_THE_BURNING_CRUSADE ) {
-
-				promise = Promise.resolve( this._readEmbeddedSkinData( parser, header ) );
-
-			} else {
-
-				let filename = ( name + '00.skin' ).toLowerCase(); // default skin name based on .m2 file
-
-				const skinFileDataIDs = chunks.get( 'SFID' );
-
-				if ( skinFileDataIDs !== undefined ) {
-
-					filename = skinFileDataIDs[ 0 ] + '.skin';
-
-				}
-
-				promise = new Promise( ( resolve, reject ) => {
-
-					skinLoader.load( filename, resolve, undefined, () => {
-
-						reject( new Error( 'THREE.M2Loader: Failed to load skin file: ' + filename ) );
-
-					} );
-
-				} );
-
-			}
-
-			// build
-
-			promise.then( skinData => {
-
-				const geometries = this._buildGeometries( skinData, vertices );
-				// const skeleton = this._buildSkeleton( boneDefinitions );
-				const materials = this._buildMaterials( materialDefinitions );
-				const textureTransforms = this._buildTextureTransforms( textureTransformDefinitions );
-				const textureWeights = this._buildTextureWeights( textureWeightDefinitions );
-				const group = this._buildObjects( name, geometries, materials, textures, textureTransforms, textureWeights, skinData, lookupTables );
-
-				onLoad( group );
-
-			} ).catch( onError );
-
-		} ).catch( onError );
+		return group;
 
 	}
 
@@ -468,7 +427,43 @@ class M2Loader extends Loader {
 
 	}
 
-	_buildTextures( textureDefinitions, loader, name, chunks ) {
+	_loadSkin( header, parser, skinLoader, name, chunks ) {
+
+		let promise;
+
+		if ( header.version <= M2_VERSION_THE_BURNING_CRUSADE ) {
+
+			promise = Promise.resolve( this._readEmbeddedSkinData( parser, header ) );
+
+		} else {
+
+			let filename = ( name + '00.skin' ).toLowerCase(); // default skin name based on .m2 file
+
+			const skinFileDataIDs = chunks.get( 'SFID' );
+
+			if ( skinFileDataIDs !== undefined ) {
+
+				filename = skinFileDataIDs[ 0 ] + '.skin';
+
+			}
+
+			promise = new Promise( ( resolve, reject ) => {
+
+				skinLoader.load( filename, resolve, undefined, () => {
+
+					reject( new Error( 'THREE.M2Loader: Failed to load skin file: ' + filename ) );
+
+				} );
+
+			} );
+
+		}
+
+		return promise;
+
+	}
+
+	_loadTextures( textureDefinitions, loader, name, chunks ) {
 
 		const promises = [];
 
@@ -532,7 +527,7 @@ class M2Loader extends Loader {
 
 	}
 
-	_buildTextureTransforms( textureTransformDefinitions ) {
+	_buildTextureTransforms( textureTransformDefinitions, globalSequences ) {
 
 		const textureTransforms = [];
 
@@ -544,13 +539,25 @@ class M2Loader extends Loader {
 
 				const animations = [];
 				const keyframes = [];
+				const globalKeyframes = [];
+
+				const translationData = textureTransformDefinition.translation;
+				const rotationData = textureTransformDefinition.rotation;
 
 				// translation
 
-				for ( let j = 0; j < textureTransformDefinition.translation.timestamps.length; j ++ ) {
+				for ( let j = 0; j < translationData.timestamps.length; j ++ ) {
 
-					const ti = textureTransformDefinition.translation.timestamps[ j ];
-					const vi = textureTransformDefinition.translation.values[ j ];
+					let maxTimeStamp = null;
+
+					if ( translationData.globalSequence >= 0 ) {
+
+						maxTimeStamp = globalSequences[ translationData.globalSequence ] / 1000;
+
+					}
+
+					const ti = translationData.timestamps[ j ];
+					const vi = translationData.values[ j ];
 
 					const times = [];
 					const values = [];
@@ -564,6 +571,12 @@ class M2Loader extends Loader {
 					for ( let k = 0; k < ti.length; k ++ ) {
 
 						times.push( ti[ k ] / 1000 );
+
+					}
+
+					if ( maxTimeStamp !== null ) {
+
+						times[ times.length - 1 ] = maxTimeStamp;
 
 					}
 
@@ -578,9 +591,31 @@ class M2Loader extends Loader {
 
 					}
 
-					if ( keyframes[ j ] === undefined ) keyframes[ j ] = [];
+					// interpolation type
 
-					keyframes[ j ].push( new VectorKeyframeTrack( '.offset', times, values ) );
+					let interpolation;
+
+					if ( translationData.interpolationType === 0 ) interpolation = InterpolateDiscrete;
+					else if ( translationData.interpolationType === 1 ) interpolation = InterpolateLinear;
+					else if ( translationData.interpolationType === 2 || translationData.interpolationType === 3 ) interpolation = InterpolateSmooth;
+					else console.warn( 'THREE.M2Loader: Unsupported interpolation type.' );
+
+					// keyframe track
+
+					if ( maxTimeStamp !== null ) {
+
+						if ( globalKeyframes[ j ] === undefined ) globalKeyframes[ j ] = [];
+
+						globalKeyframes[ j ].push( new VectorKeyframeTrack( '.offset', times, values, interpolation ) );
+
+
+					} else {
+
+						if ( keyframes[ j ] === undefined ) keyframes[ j ] = [];
+
+						keyframes[ j ].push( new VectorKeyframeTrack( '.offset', times, values, interpolation ) );
+
+					}
 
 				}
 
@@ -592,10 +627,18 @@ class M2Loader extends Loader {
 				const up = new Vector3( 0, 0, - 1 );
 				const cross = new Vector3();
 
-				for ( let j = 0; j < textureTransformDefinition.rotation.timestamps.length; j ++ ) {
+				for ( let j = 0; j < rotationData.timestamps.length; j ++ ) {
 
-					const ti = textureTransformDefinition.rotation.timestamps[ j ];
-					const vi = textureTransformDefinition.rotation.values[ j ];
+					let maxTimeStamp = null;
+
+					if ( translationData.globalSequence >= 0 ) {
+
+						maxTimeStamp = globalSequences[ translationData.globalSequence ];
+
+					}
+
+					const ti = rotationData.timestamps[ j ];
+					const vi = rotationData.values[ j ];
 
 					const times = [];
 					const values = [];
@@ -609,6 +652,12 @@ class M2Loader extends Loader {
 					for ( let k = 0; k < ti.length; k ++ ) {
 
 						times.push( ti[ k ] / 1000 );
+
+					}
+
+					if ( maxTimeStamp !== null ) {
+
+						times[ times.length - 1 ] = maxTimeStamp;
 
 					}
 
@@ -635,15 +684,44 @@ class M2Loader extends Loader {
 
 					}
 
-					if ( keyframes[ j ] === undefined ) keyframes[ j ] = [];
+					// interpolation type
 
-					keyframes[ j ].push( new NumberKeyframeTrack( '.rotation', times, values ) );
+					let interpolation;
+
+					if ( rotationData.interpolationType === 0 ) interpolation = InterpolateDiscrete;
+					else if ( rotationData.interpolationType === 1 ) interpolation = InterpolateLinear;
+					else if ( rotationData.interpolationType === 2 || rotationData.interpolationType === 3 ) interpolation = InterpolateSmooth;
+					else console.warn( 'THREE.M2Loader: Unsupported interpolation type.' );
+
+					// keyframe track
+
+					if ( maxTimeStamp !== null ) {
+
+						if ( globalKeyframes[ j ] === undefined ) globalKeyframes[ j ] = [];
+
+						globalKeyframes[ j ].push( new NumberKeyframeTrack( '.offset', times, values, interpolation ) );
+
+
+					} else {
+
+						if ( keyframes[ j ] === undefined ) keyframes[ j ] = [];
+
+						keyframes[ j ].push( new NumberKeyframeTrack( '.rotation', times, values, interpolation ) );
+
+					}
 
 				}
 
 				for ( let j = 0; j < keyframes.length; j ++ ) {
 
 					const clip = new AnimationClip( 'TextureTransform_' + j, - 1, [ ... keyframes[ j ] ] );
+					animations.push( clip );
+
+				}
+
+				for ( let j = 0; j < globalKeyframes.length; j ++ ) {
+
+					const clip = new AnimationClip( 'GlobalTextureTransform_' + j, - 1, [ ... globalKeyframes[ j ] ] );
 					animations.push( clip );
 
 				}
@@ -658,7 +736,7 @@ class M2Loader extends Loader {
 
 	}
 
-	_buildTextureWeights( textureWeightDefinitions ) {
+	_buildTextureWeights( textureWeightDefinitions, globalSequences ) {
 
 		const textureWeights = [];
 
@@ -670,8 +748,17 @@ class M2Loader extends Loader {
 
 				const animations = [];
 				const opacityKeyFrames = [];
+				const globalOpacityKeyFrames = [];
 
 				for ( let j = 0; j < textureWeightDefinition.timestamps.length; j ++ ) {
+
+					let maxTimeStamp = null;
+
+					if ( textureWeightDefinition.globalSequence >= 0 ) {
+
+						maxTimeStamp = globalSequences[ textureWeightDefinition.globalSequence ];
+
+					}
 
 					const ti = textureWeightDefinition.timestamps[ j ];
 					const vi = textureWeightDefinition.values[ j ];
@@ -692,6 +779,12 @@ class M2Loader extends Loader {
 
 					}
 
+					if ( maxTimeStamp !== null ) {
+
+						times[ times.length - 1 ] = maxTimeStamp;
+
+					}
+
 					// values
 
 					for ( let k = 0; k < vi.length; k ++ ) {
@@ -700,13 +793,39 @@ class M2Loader extends Loader {
 
 					}
 
-					opacityKeyFrames.push( new NumberKeyframeTrack( '.opacity', times, values ) );
+					// interpolation type
+
+					let interpolation;
+
+					if ( textureWeightDefinition.interpolationType === 0 ) interpolation = InterpolateDiscrete;
+					else if ( textureWeightDefinition.interpolationType === 1 ) interpolation = InterpolateLinear;
+					else if ( textureWeightDefinition.interpolationType === 2 || textureWeightDefinition.interpolationType === 3 ) interpolation = InterpolateSmooth;
+					else console.warn( 'THREE.M2Loader: Unsupported interpolation type.' );
+
+					// keyframe track
+
+					if ( maxTimeStamp !== null ) {
+
+						globalOpacityKeyFrames.push( new NumberKeyframeTrack( '.opacity', times, values, interpolation ) );
+
+					} else {
+
+						opacityKeyFrames.push( new NumberKeyframeTrack( '.opacity', times, values, interpolation ) );
+
+					}
 
 				}
 
 				for ( let j = 0; j < opacityKeyFrames.length; j ++ ) {
 
 					const clip = new AnimationClip( 'Opacity_' + j, - 1, [ opacityKeyFrames[ j ] ] );
+					animations.push( clip );
+
+				}
+
+				for ( let j = 0; j < globalOpacityKeyFrames.length; j ++ ) {
+
+					const clip = new AnimationClip( 'GlobalOpacity_' + j, - 1, [ globalOpacityKeyFrames[ j ] ] );
 					animations.push( clip );
 
 				}
@@ -972,6 +1091,28 @@ class M2Loader extends Loader {
 		parser.restoreState();
 
 		return skinData;
+
+	}
+
+	_readGlobalSequences( parser, header ) {
+
+		const length = header.globalLoopsLength;
+		const offset = header.globalLoopsOffset;
+
+		parser.saveState();
+		parser.moveTo( offset );
+
+		const timestamps = [];
+
+		for ( let i = 0; i < length; i ++ ) {
+
+			timestamps.push( parser.readUInt32() );
+
+		}
+
+		parser.restoreState();
+
+		return timestamps;
 
 	}
 
