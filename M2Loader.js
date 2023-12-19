@@ -453,6 +453,7 @@ class M2Loader extends Loader {
 
 			const translationData = boneDefinition.translation;
 			const rotationData = boneDefinition.rotation;
+			const scaleData = boneDefinition.scale;
 
 			for ( let j = 0; j < translationData.timestamps.length; j ++ ) {
 
@@ -586,6 +587,74 @@ class M2Loader extends Loader {
 					if ( keyframes[ j ] === undefined ) keyframes[ j ] = [];
 
 					keyframes[ j ].push( new QuaternionKeyframeTrack( bone.uuid + '.quaternion', times, values, interpolation ) );
+
+				}
+
+			}
+
+			for ( let j = 0; j < scaleData.timestamps.length; j ++ ) {
+
+				let maxTimeStamp = null;
+
+				if ( scaleData.globalSequence >= 0 ) {
+
+					maxTimeStamp = globalSequences[ scaleData.globalSequence ] / 1000;
+
+				}
+
+				const ti = scaleData.timestamps[ j ];
+				const vi = scaleData.values[ j ];
+
+				const times = [];
+				const values = [];
+
+				// ignore empty tracks
+
+				if ( ti.length <= 1 ) continue;
+
+
+				// times
+
+				for ( let k = 0; k < ti.length; k ++ ) {
+
+					times.push( ti[ k ] / 1000 );
+
+				}
+
+				if ( maxTimeStamp !== null ) {
+
+					times[ times.length - 1 ] = maxTimeStamp;
+
+				}
+
+				// values
+
+				for ( let k = 0; k < vi.length; k += 3 ) {
+
+					values.push( vi[ k ] );
+					values.push( vi[ k + 1 ] );
+					values.push( vi[ k + 2 ] );
+
+				}
+
+				// interpolation type
+
+				const interpolation = this._getInterpolation( translationData.interpolationType );
+
+				// keyframe track
+
+				if ( maxTimeStamp !== null ) {
+
+					if ( globalKeyframes[ j ] === undefined ) globalKeyframes[ j ] = [];
+
+					globalKeyframes[ j ].push( new VectorKeyframeTrack( bone.uuid + '.scale', times, values, interpolation ) );
+
+
+				} else {
+
+					if ( keyframes[ j ] === undefined ) keyframes[ j ] = [];
+
+					keyframes[ j ].push( new VectorKeyframeTrack( bone.uuid + '.scale', times, values, interpolation ) );
 
 				}
 
