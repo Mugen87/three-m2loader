@@ -30,30 +30,6 @@
 
 			import * as THREE from 'three';
 
-			// to make skeletal animation work, monkey-patching updateMatrix() to support pivot points is required right now
-
-			THREE.Object3D.prototype.updateMatrix = function () {
-
-				this.matrix.compose( this.position, this.quaternion, this.scale );
-
-				if ( this.pivot && this.pivot.isVector3 ) {
-
-					const px = this.pivot.x;
-					const py = this.pivot.y;
-					const pz = this.pivot.z;
-
-					const te = this.matrix.elements;
-
-					te[ 12 ] += px - te[ 0 ] * px - te[ 4 ] * py - te[ 8 ] * pz;
-					te[ 13 ] += py - te[ 1 ] * px - te[ 5 ] * py - te[ 9 ] * pz;
-					te[ 14 ] += pz - te[ 2 ] * px - te[ 6 ] * py - te[ 10 ] * pz;
-
-				}
-
-				this.matrixWorldNeedsUpdate = true;
-
-			};
-
 			import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 			import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 

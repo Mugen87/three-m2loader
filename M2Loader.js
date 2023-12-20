@@ -149,12 +149,12 @@ class M2Loader extends Loader {
 
 		const name = this._readName( parser, header );
 		const vertices = this._readVertices( parser, header );
-		const colors = this._readColors( parser, header ); // eslint-disable-line no-unused-vars
+		const colors = this._readColors( parser, header );
 		const materialDefinitions = this._readMaterialDefinitions( parser, header );
 		const textureDefinitions = this._readTextureDefinitions( parser, header );
 		const textureTransformDefinitions = this._readTextureTransformDefinitions( parser, header );
 		const textureWeightDefinitions = this._readTextureWeightDefinitions( parser, header );
-		const globalSequences = this._readGlobalSequences( parser, header ); // eslint-disable-line no-unused-vars
+		const globalSequences = this._readGlobalSequences( parser, header );
 		const boneDefinitions = this._readBoneDefinitions( parser, header );
 
 		// lookup tables
@@ -189,13 +189,13 @@ class M2Loader extends Loader {
 		const materials = this._buildMaterials( materialDefinitions );
 		const textureTransforms = this._buildTextureTransforms( textureTransformDefinitions, globalSequences );
 		const textureWeights = this._buildTextureWeights( textureWeightDefinitions, globalSequences );
-		const group = this._buildObjects( name, geometries, skeleton, materials, textures, textureTransforms, textureWeights, skinData, lookupTables );
+		const group = this._buildObjects( name, geometries, skeleton, materials, colors, textures, textureTransforms, textureWeights, skinData, lookupTables );
 
 		return group;
 
 	}
 
-	_buildObjects( name, geometries, skeleton, materials, textures, textureTransforms, textureWeights, skinData, lookupTables ) {
+	_buildObjects( name, geometries, skeleton, materials, colors, textures, textureTransforms, textureWeights, skinData, lookupTables ) {
 
 		const group = new Group();
 		group.name = name;
@@ -266,6 +266,31 @@ class M2Loader extends Loader {
 					materialAnimations.push( ...textureWeight );
 
 				}
+
+			}
+
+			// color and alpha
+
+			const colorData = colors[ batch.colorIndex ];
+
+			if ( colorData !== undefined ) {
+
+				const color = colorData.color;
+				const alpha = colorData.alpha;
+
+				if ( color.timestamps.length === 1 ) {
+
+					material.color.fromArray( color.values[ 0 ] );
+
+				}
+
+				if ( alpha.timestamps.length === 1 ) {
+
+					material.opacity = alpha.values[ 0 ][ 0 ];
+
+				}
+
+				// TODO handle animated data
 
 			}
 
@@ -426,7 +451,7 @@ class M2Loader extends Loader {
 	_buildSkeleton( boneDefinitions, globalSequences ) {
 
 		// TODO: Find out a better way for detecting static models
-		// Problem: Even static models have some bone definitions
+		// Problem: Even static models might have bone definitions
 
 		if ( boneDefinitions.length < 8 ) return null;
 
@@ -439,8 +464,8 @@ class M2Loader extends Loader {
 
 			const boneDefinition = boneDefinitions[ i ];
 
-			const bone = new Bone();
-			bone.pivot = boneDefinition.pivot; // TODO: three.js does not support pivot points so this hack is required as well as overwriting Object3D.updateMatrix()
+			const bone = new PivotBone();
+			bone.pivot.copy( boneDefinition.pivot ); // three.js does not support pivot points so a custom bone class is required
 
 			bones.push( bone );
 
@@ -2557,11 +2582,39 @@ class M2Vertex {
 
 }
 
-// function int16ToFloat( x ) {
+class PivotBone extends Bone {
 
-// 	return ( x < 0 ? x + 32768 : x - 32767 ) / 32767;
+	constructor() {
 
-// }
+		super();
+
+		this.pivot = new Vector3();
+
+	}
+
+	updateMatrix() {
+
+		this.matrix.compose( this.position, this.quaternion, this.scale );
+
+		if ( this.pivot && this.pivot.isVector3 ) {
+
+			const px = this.pivot.x;
+			const py = this.pivot.y;
+			const pz = this.pivot.z;
+
+			const te = this.matrix.elements;
+
+			te[ 12 ] += px - te[ 0 ] * px - te[ 4 ] * py - te[ 8 ] * pz;
+			te[ 13 ] += py - te[ 1 ] * px - te[ 5 ] * py - te[ 9 ] * pz;
+			te[ 14 ] += pz - te[ 2 ] * px - te[ 6 ] * py - te[ 10 ] * pz;
+
+		}
+
+		this.matrixWorldNeedsUpdate = true;
+
+	}
+
+}
 
 // JSDoc
 
