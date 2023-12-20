@@ -2596,19 +2596,15 @@ class PivotBone extends Bone {
 
 		this.matrix.compose( this.position, this.quaternion, this.scale );
 
-		if ( this.pivot && this.pivot.isVector3 ) {
+		const px = this.pivot.x;
+		const py = this.pivot.y;
+		const pz = this.pivot.z;
 
-			const px = this.pivot.x;
-			const py = this.pivot.y;
-			const pz = this.pivot.z;
+		const te = this.matrix.elements;
 
-			const te = this.matrix.elements;
-
-			te[ 12 ] += px - te[ 0 ] * px - te[ 4 ] * py - te[ 8 ] * pz;
-			te[ 13 ] += py - te[ 1 ] * px - te[ 5 ] * py - te[ 9 ] * pz;
-			te[ 14 ] += pz - te[ 2 ] * px - te[ 6 ] * py - te[ 10 ] * pz;
-
-		}
+		te[ 12 ] += px - te[ 0 ] * px - te[ 4 ] * py - te[ 8 ] * pz;
+		te[ 13 ] += py - te[ 1 ] * px - te[ 5 ] * py - te[ 9 ] * pz;
+		te[ 14 ] += pz - te[ 2 ] * px - te[ 6 ] * py - te[ 10 ] * pz;
 
 		this.matrixWorldNeedsUpdate = true;
 
