@@ -2,6 +2,7 @@ import {
 	AdditiveBlending,
 	AnimationClip,
 	Bone,
+	Box3,
 	BufferGeometry,
 	Color,
 	ColorKeyframeTrack,
@@ -156,6 +157,7 @@ class M2Loader extends Loader {
 		const textureDefinitions = this._readTextureDefinitions( parser, header );
 		const textureTransformDefinitions = this._readTextureTransformDefinitions( parser, header );
 		const textureWeightDefinitions = this._readTextureWeightDefinitions( parser, header );
+		const sequences = this._readSequences( parser, header ); // eslint-disable-line no-unused-vars
 		const globalSequences = this._readGlobalSequences( parser, header );
 		const boneDefinitions = this._readBoneDefinitions( parser, header );
 
@@ -1775,6 +1777,69 @@ class M2Loader extends Loader {
 
 	}
 
+	_readSequences( parser, header ) {
+
+		const length = header.sequencesLength;
+		const offset = header.sequencesOffset;
+
+		parser.saveState();
+		parser.moveTo( offset );
+
+		const sequences = [];
+
+		for ( let i = 0; i < length; i ++ ) {
+
+			const sequence = new M2Sequence();
+
+			sequence.id = parser.readUInt16();
+			sequence.variationIndex = parser.readUInt16();
+
+			if ( header.version <= M2_VERSION_THE_BURNING_CRUSADE ) {
+
+				sequence.startTimestamp = parser.readUInt32();
+				sequence.endTimestamp = parser.readUInt32();
+
+			} else {
+
+				sequence.duration = parser.readUInt32();
+
+			}
+
+			sequence.movespeed = parser.readFloat32();
+			sequence.flags = parser.readUInt32();
+			sequence.frequency = parser.readInt16();
+			sequence.padding = parser.readUInt16();
+			sequence.replay.minimum = parser.readUInt32();
+			sequence.replay.maximum = parser.readUInt32();
+
+			if ( header.version < M2_VERSION_LEGION ) {
+
+				sequence.blendTime = parser.readUInt32();
+
+			} else {
+
+				sequence.blendTimeIn = parser.readUInt16();
+				sequence.blendTimeOut = parser.readUInt16();
+
+			}
+
+			sequence.bounds.extend.max.set( parser.readFloat32(), parser.readFloat32(), parser.readFloat32() );
+			sequence.bounds.extend.min.set( parser.readFloat32(), parser.readFloat32(), parser.readFloat32() );
+			sequence.bounds.radius = parser.readFloat32();
+
+			sequence.variationNext = parser.readInt16();
+			sequence.aliasNext = parser.readUInt16();
+
+			sequences.push( sequence );
+
+		}
+
+		parser.restoreState();
+
+		return sequences;
+
+	}
+
 	_readTextureDefinitions( parser, header ) {
 
 		const length = header.texturesLength;
@@ -2199,7 +2264,7 @@ const M2_VERSION_WRATH_OF_THE_LICH_KING = 264;
 // const M2_VERSION_CATACLYSM = 272;
 // const M2_VERSION_MISTS_OF_PANDARIA = 272;
 // const M2_VERSION_WARLORDS_OF_DRAENOR = 272;
-// const M2_VERSION_LEGION = 274;
+const M2_VERSION_LEGION = 274;
 // const M2_VERSION_BATTLE_FOR_AZEROTH = 274;
 // const M2_VERSION_SHADOWLANDS = 274;
 
@@ -2847,6 +2912,31 @@ class M2Material {
 
 		this.flags = 0;
 		this.blendingMode = 0;
+
+	}
+
+}
+
+class M2Sequence {
+
+	constructor() {
+
+		this.id = 0;
+		this.variationIndex = 0;
+		this.startTimestamp = 0;
+		this.endTimestamp = 0;
+		this.duration = 0;
+		this.movespeed = 0;
+		this.flags = 0;
+		this.frequency = 0;
+		this.padding = 0;
+		this.replay = { minimum: 0, maximum: 0 };
+		this.blendTime = 0;
+		this.blendTimeIn = 0;
+		this.blendTimeOut = 0;
+		this.bounds = { extend: new Box3(), radius: 0 };
+		this.variationNext = 0;
+		this.aliasNext = 0;
 
 	}
 
