@@ -3,6 +3,7 @@ import {
 	AnimationClip,
 	Bone,
 	BufferGeometry,
+	Color,
 	CompressedTexture,
 	DataTexture,
 	DoubleSide,
@@ -149,7 +150,7 @@ class M2Loader extends Loader {
 
 		const name = this._readName( parser, header );
 		const vertices = this._readVertices( parser, header );
-		const colors = this._readColors( parser, header );
+		const colorDefinitions = this._readColorDefinitions( parser, header );
 		const materialDefinitions = this._readMaterialDefinitions( parser, header );
 		const textureDefinitions = this._readTextureDefinitions( parser, header );
 		const textureTransformDefinitions = this._readTextureTransformDefinitions( parser, header );
@@ -189,6 +190,7 @@ class M2Loader extends Loader {
 		const materials = this._buildMaterials( materialDefinitions );
 		const textureTransforms = this._buildTextureTransforms( textureTransformDefinitions, globalSequences );
 		const textureWeights = this._buildTextureWeights( textureWeightDefinitions, globalSequences );
+		const colors = this._buildColors( colorDefinitions, globalSequences );
 		const group = this._buildObjects( name, geometries, skeleton, materials, colors, textures, textureTransforms, textureWeights, skinData, lookupTables );
 
 		return group;
@@ -201,6 +203,7 @@ class M2Loader extends Loader {
 		group.name = name;
 
 		const animationMap = new Map();
+		group.userData.animationMap = animationMap;
 
 		// meshes
 
@@ -241,29 +244,93 @@ class M2Loader extends Loader {
 
 			if ( textureTransformIndex !== undefined ) {
 
-				const textureTransform = textureTransforms[ textureTransformIndex ];
+				const data = textureTransforms[ textureTransformIndex ];
 
-				if ( textureTransform !== undefined && textureTransform.length > 0 ) {
+				if ( data !== undefined ) {
 
-					const textureAnimations = animationMap.get( material.map );
-					textureAnimations.push( ...textureTransform );
+					const translation = data.translation;
+					const rotation = data.rotation;
+
+					if ( translation.animated === false ) {
+
+						material.map.offset.copy( translation.constant );
+
+					}
+
+					if ( rotation.animated === false ) {
+
+						material.map.rotation = rotation.constant;
+
+					}
+
+					if ( translation.animated || rotation.animated ) {
+
+						const animations = [];
+
+						for ( let j = 0; j < data.tracks.length; j ++ ) {
+
+							const clip = new AnimationClip( 'TextureTransform_' + j, - 1, [ ... data.tracks[ j ] ] );
+							animations.push( clip );
+
+						}
+
+						for ( let j = 0; j < data.globalTracks.length; j ++ ) {
+
+							const clip = new AnimationClip( 'GlobalTextureTransform_' + j, - 1, [ ... data.globalTracks[ j ] ] );
+							animations.push( clip );
+
+						}
+
+						const textureAnimations = animationMap.get( material.map );
+						textureAnimations.push( ...animations );
+
+					}
 
 				}
 
 			}
 
-			// opacity animations
+			// texture weight
 
 			const textureWeightIndex = lookupTables.textureWeights[ batch.textureWeightComboIndex ];
 
 			if ( textureWeightIndex !== undefined ) {
 
-				const textureWeight = textureWeights[ textureWeightIndex ];
+				const data = textureWeights[ textureWeightIndex ];
 
-				if ( textureWeight !== undefined && textureWeight.length > 0 ) {
+				if ( data !== undefined ) {
 
-					const materialAnimations = animationMap.get( material );
-					materialAnimations.push( ...textureWeight );
+					const weight = data.weight;
+
+					if ( weight.animated === false ) {
+
+						material.opacity *= weight.constant;
+
+					} else {
+
+						const tracks = data.tracks;
+						const globalTracks = data.globalTracks;
+
+						const animations = [];
+
+						for ( let j = 0; j < tracks.length; j ++ ) {
+
+							const clip = new AnimationClip( 'Opacity_' + j, - 1, [ ...tracks[ j ] ] );
+							animations.push( clip );
+
+						}
+
+						for ( let j = 0; j < globalTracks.length; j ++ ) {
+
+							const clip = new AnimationClip( 'GlobalOpacity_' + j, - 1, [ ...globalTracks[ j ] ] );
+							animations.push( clip );
+
+						}
+
+						const materialAnimations = animationMap.get( material );
+						materialAnimations.push( ...animations );
+
+					}
 
 				}
 
@@ -278,15 +345,15 @@ class M2Loader extends Loader {
 				const color = colorData.color;
 				const alpha = colorData.alpha;
 
-				if ( color.timestamps.length === 1 ) {
+				if ( color.animated === false ) {
 
-					material.color.fromArray( color.values[ 0 ] );
+					material.color.copy( color.constant );
 
 				}
 
-				if ( alpha.timestamps.length === 1 ) {
+				if ( alpha.animated === false ) {
 
-					material.opacity = alpha.values[ 0 ][ 0 ];
+					material.opacity *= alpha.constant;
 
 				}
 
@@ -303,14 +370,6 @@ class M2Loader extends Loader {
 				mesh = new SkinnedMesh( geometry, material );
 				mesh.bind( skeleton );
 
-				for ( const bone of skeleton.bones ) {
-
-					if ( bone.parent === null ) mesh.add( bone );
-
-				}
-
-				animationMap.set( group, skeleton.userData.animations );
-
 			} else {
 
 				mesh = new Mesh( geometry, material );
@@ -321,9 +380,75 @@ class M2Loader extends Loader {
 
 		}
 
-		group.userData.animationMap = animationMap;
+		//
+
+		if ( skeleton !== null ) {
+
+			for ( const bone of skeleton.bones ) {
+
+				if ( bone.parent === null ) group.add( bone );
+
+			}
+
+			animationMap.set( group, skeleton.userData.animations );
+
+			delete skeleton.userData;
+
+		}
 
 		return group;
+
+	}
+
+	_buildColors( colorDefinitions /*, globalSequences */ ) {
+
+		const colors = [];
+
+		for ( let i = 0; i < colorDefinitions.length; i ++ ) {
+
+			const colorDefinition = colorDefinitions[ i ];
+
+			if ( colorDefinition !== undefined ) {
+
+				const data = {
+					color: {
+						constant: new Color(),
+						animated: true
+					},
+					alpha: {
+						constant: 1,
+						animated: true
+					},
+					tracks: [],
+					globalTracks: [],
+				};
+
+				const color = colorDefinition.color;
+				const alpha = colorDefinition.alpha;
+
+				if ( isStaticTrack( color ) ) {
+
+					data.color.constant.fromArray( color.values[ 0 ] );
+					data.color.animated = false;
+
+				}
+
+				if ( isStaticTrack( alpha ) ) {
+
+					data.alpha.constant = alpha.values[ 0 ][ 0 ];
+					data.alpha.animated = false;
+
+				}
+
+				colors.push( data );
+
+				// TODO: handle animated colors
+
+			}
+
+		}
+
+		return colors;
 
 	}
 
@@ -498,8 +623,7 @@ class M2Loader extends Loader {
 
 				// ignore empty tracks
 
-				if ( ti.length <= 1 ) continue;
-
+				if ( ti.length === 0 ) continue;
 
 				// times
 
@@ -566,8 +690,7 @@ class M2Loader extends Loader {
 
 				// ignore empty tracks
 
-				if ( ti.length <= 1 ) continue;
-
+				if ( ti.length === 0 ) continue;
 
 				// times
 
@@ -635,8 +758,7 @@ class M2Loader extends Loader {
 
 				// ignore empty tracks
 
-				if ( ti.length <= 1 ) continue;
-
+				if ( ti.length === 0 ) continue;
 
 				// times
 
@@ -664,7 +786,7 @@ class M2Loader extends Loader {
 
 				// interpolation type
 
-				const interpolation = this._getInterpolation( translationData.interpolationType );
+				const interpolation = this._getInterpolation( scaleData.interpolationType );
 
 				// keyframe track
 
@@ -721,36 +843,50 @@ class M2Loader extends Loader {
 
 			const textureTransformDefinition = textureTransformDefinitions[ i ];
 
-			if ( textureTransformDefinition !== undefined ) {
+			const data = {
+				translation: {
+					constant: new Vector2(),
+					animated: true
+				},
+				rotation: {
+					constant: 1,
+					animated: true
+				},
+				tracks: [],
+				globalTracks: [],
+			};
 
-				const animations = [];
-				const keyframes = [];
-				const globalKeyframes = [];
+			const translation = textureTransformDefinition.translation;
+			const rotation = textureTransformDefinition.rotation;
 
-				const translationData = textureTransformDefinition.translation;
-				const rotationData = textureTransformDefinition.rotation;
+			if ( isStaticTrack( translation ) ) {
+
+				data.translation.constant.copy( translation.values[ 0 ] );
+				data.translation.animated = false;
+
+			} else {
 
 				// translation
 
-				for ( let j = 0; j < translationData.timestamps.length; j ++ ) {
+				for ( let j = 0; j < translation.timestamps.length; j ++ ) {
 
 					let maxTimeStamp = null;
 
-					if ( translationData.globalSequence >= 0 ) {
+					if ( translation.globalSequence >= 0 ) {
 
-						maxTimeStamp = globalSequences[ translationData.globalSequence ] / 1000;
+						maxTimeStamp = globalSequences[ translation.globalSequence ] / 1000;
 
 					}
 
-					const ti = translationData.timestamps[ j ];
-					const vi = translationData.values[ j ];
+					const ti = translation.timestamps[ j ];
+					const vi = translation.values[ j ];
 
 					const times = [];
 					const values = [];
 
 					// ignore empty tracks
 
-					if ( ti.length <= 1 ) continue;
+					if ( ti.length === 0 ) continue;
 
 					// times
 
@@ -779,54 +915,60 @@ class M2Loader extends Loader {
 
 					// interpolation type
 
-					const interpolation = this._getInterpolation( translationData.interpolationType );
+					const interpolation = this._getInterpolation( translation.interpolationType );
 
 					// keyframe track
 
 					if ( maxTimeStamp !== null ) {
 
-						if ( globalKeyframes[ j ] === undefined ) globalKeyframes[ j ] = [];
+						if ( data.globalTracks[ j ] === undefined ) data.globalTracks[ j ] = [];
 
-						globalKeyframes[ j ].push( new VectorKeyframeTrack( '.offset', times, values, interpolation ) );
+						data.globalTracks[ j ].push( new VectorKeyframeTrack( '.offset', times, values, interpolation ) );
 
 
 					} else {
 
-						if ( keyframes[ j ] === undefined ) keyframes[ j ] = [];
+						if ( data.tracks[ j ] === undefined ) data.tracks[ j ] = [];
 
-						keyframes[ j ].push( new VectorKeyframeTrack( '.offset', times, values, interpolation ) );
+						data.tracks[ j ].push( new VectorKeyframeTrack( '.offset', times, values, interpolation ) );
 
 					}
 
 				}
 
-				// rotation
+			}
 
-				const q = new Quaternion();
-				const v0 = new Vector3();
-				const v1 = new Vector3( 0, 1, 0 );
-				const up = new Vector3( 0, 0, - 1 );
-				const cross = new Vector3();
+			// rotation
 
-				for ( let j = 0; j < rotationData.timestamps.length; j ++ ) {
+			const q = new Quaternion();
+
+			if ( isStaticTrack( rotation ) ) {
+
+				q.fromArray( rotation.values[ 0 ] );
+				data.rotation.constant = quaternionToAngle( q, 0 );
+				data.rotation.animated = false;
+
+			} else {
+
+				for ( let j = 0; j < rotation.timestamps.length; j ++ ) {
 
 					let maxTimeStamp = null;
 
-					if ( translationData.globalSequence >= 0 ) {
+					if ( rotation.globalSequence >= 0 ) {
 
-						maxTimeStamp = globalSequences[ translationData.globalSequence ];
+						maxTimeStamp = globalSequences[ rotation.globalSequence ];
 
 					}
 
-					const ti = rotationData.timestamps[ j ];
-					const vi = rotationData.values[ j ];
+					const ti = rotation.timestamps[ j ];
+					const vi = rotation.values[ j ];
 
 					const times = [];
 					const values = [];
 
 					// ignore empty tracks
 
-					if ( ti.length <= 1 ) continue;
+					if ( ti.length === 0 ) continue;
 
 					// times
 
@@ -848,63 +990,40 @@ class M2Loader extends Loader {
 
 					for ( let k = 0; k < vi.length; k += 4 ) {
 
-						// convert quaterion to single angle
-						// it's not possible to use angleTo() since this method returns angles in the range [0,π] (instead of [-π, π]).
-						// TODO: Verify if this approach works with other assets than g_scourgerunecirclecrystal.m2
+						// M2 uses a sequence of quaternions to represent texture rotation. in three.js this must be converted to a sequence of angles.
 
 						q.fromArray( vi, k );
-
-						v0.copy( v1 );
-						v1.set( 0, 1, 0 ).applyQuaternion( q );
-
-						const dot = v0.dot( v1 );
-						const det = up.dot( cross.crossVectors( v0, v1 ) );
-						r += Math.atan2( det, dot );
-
+						r = quaternionToAngle( q, r );
 						values.push( r );
 
 					}
 
 					// interpolation type
 
-					const interpolation = this._getInterpolation( rotationData.interpolationType );
+					const interpolation = this._getInterpolation( rotation.interpolationType );
 
 					// keyframe track
 
 					if ( maxTimeStamp !== null ) {
 
-						if ( globalKeyframes[ j ] === undefined ) globalKeyframes[ j ] = [];
+						if ( data.globalTracks[ j ] === undefined ) data.globalTracks[ j ] = [];
 
-						globalKeyframes[ j ].push( new NumberKeyframeTrack( '.offset', times, values, interpolation ) );
+						data.globalTracks[ j ].push( new NumberKeyframeTrack( '.rotation', times, values, interpolation ) );
 
 
 					} else {
 
-						if ( keyframes[ j ] === undefined ) keyframes[ j ] = [];
+						if ( data.tracks[ j ] === undefined ) data.tracks[ j ] = [];
 
-						keyframes[ j ].push( new NumberKeyframeTrack( '.rotation', times, values, interpolation ) );
+						data.tracks[ j ].push( new NumberKeyframeTrack( '.rotation', times, values, interpolation ) );
 
 					}
 
 				}
 
-				for ( let j = 0; j < keyframes.length; j ++ ) {
-
-					const clip = new AnimationClip( 'TextureTransform_' + j, - 1, [ ... keyframes[ j ] ] );
-					animations.push( clip );
-
-				}
-
-				for ( let j = 0; j < globalKeyframes.length; j ++ ) {
-
-					const clip = new AnimationClip( 'GlobalTextureTransform_' + j, - 1, [ ... globalKeyframes[ j ] ] );
-					animations.push( clip );
-
-				}
-
-				textureTransforms.push( animations );
-
 			}
+
+			textureTransforms.push( data );
 
 		}
 
@@ -920,11 +1039,21 @@ class M2Loader extends Loader {
 
 			const textureWeightDefinition = textureWeightDefinitions[ i ];
 
-			if ( textureWeightDefinition !== undefined ) {
+			const data = {
+				weight: {
+					constant: 1,
+					animated: true
+				},
+				tracks: [],
+				globalTracks: []
+			};
 
-				const animations = [];
-				const opacityKeyFrames = [];
-				const globalOpacityKeyFrames = [];
+			if ( isStaticTrack( textureWeightDefinition ) ) {
+
+				data.weight.constant = textureWeightDefinition.values[ 0 ][ 0 ];
+				data.weight.animated = false;
+
+			} else {
 
 				for ( let j = 0; j < textureWeightDefinition.timestamps.length; j ++ ) {
 
@@ -932,7 +1061,7 @@ class M2Loader extends Loader {
 
 					if ( textureWeightDefinition.globalSequence >= 0 ) {
 
-						maxTimeStamp = globalSequences[ textureWeightDefinition.globalSequence ];
+						maxTimeStamp = globalSequences[ textureWeightDefinition.globalSequence ] / 1000;
 
 					}
 
@@ -944,8 +1073,7 @@ class M2Loader extends Loader {
 
 					// ignore empty tracks
 
-					if ( ti.length <= 1 ) continue;
-
+					if ( ti.length === 0 ) continue;
 
 					// times
 
@@ -977,33 +1105,23 @@ class M2Loader extends Loader {
 
 					if ( maxTimeStamp !== null ) {
 
-						globalOpacityKeyFrames.push( new NumberKeyframeTrack( '.opacity', times, values, interpolation ) );
+						if ( data.globalTracks[ j ] === undefined ) data.globalTracks[ j ] = [];
+
+						data.globalTracks[ j ].push( new NumberKeyframeTrack( '.opacity', times, values, interpolation ) );
 
 					} else {
 
-						opacityKeyFrames.push( new NumberKeyframeTrack( '.opacity', times, values, interpolation ) );
+						if ( data.tracks[ j ] === undefined ) data.tracks[ j ] = [];
+
+						data.tracks[ j ].push( new NumberKeyframeTrack( '.opacity', times, values, interpolation ) );
 
 					}
 
 				}
 
-				for ( let j = 0; j < opacityKeyFrames.length; j ++ ) {
-
-					const clip = new AnimationClip( 'Opacity_' + j, - 1, [ opacityKeyFrames[ j ] ] );
-					animations.push( clip );
-
-				}
-
-				for ( let j = 0; j < globalOpacityKeyFrames.length; j ++ ) {
-
-					const clip = new AnimationClip( 'GlobalOpacity_' + j, - 1, [ globalOpacityKeyFrames[ j ] ] );
-					animations.push( clip );
-
-				}
-
-				textureWeights.push( animations );
-
 			}
+
+			textureWeights.push( data );
 
 		}
 
@@ -1352,7 +1470,7 @@ class M2Loader extends Loader {
 
 	}
 
-	_readColors( parser, header ) {
+	_readColorDefinitions( parser, header ) {
 
 		const length = header.colorsLength;
 		const offset = header.colorsOffset;
@@ -1835,6 +1953,34 @@ class M2Loader extends Loader {
 		return vertex;
 
 	}
+
+}
+
+function isStaticTrack( track ) {
+
+	// used to detect static tracks (tracks with a single timestamp array that holds just "0")
+
+	return track.timestamps.length === 1 && track.timestamps[ 0 ].length === 1 && track.timestamps[ 0 ][ 0 ] === 0;
+
+}
+
+const v0 = new Vector3();
+const v1 = new Vector3( 0, 1, 0 );
+const up = new Vector3( 0, 0, - 1 );
+const cross = new Vector3();
+
+function quaternionToAngle( q, r ) {
+
+	// TODO: Verify if this approach works with other assets than g_scourgerunecirclecrystal.m2
+
+	v0.copy( v1 );
+	v1.set( 0, 1, 0 ).applyQuaternion( q );
+
+	const dot = v0.dot( v1 );
+	const det = up.dot( cross.crossVectors( v0, v1 ) );
+	r += Math.atan2( det, dot );
+
+	return r;
 
 }
 
