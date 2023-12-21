@@ -4,6 +4,7 @@ import {
 	Bone,
 	BufferGeometry,
 	Color,
+	ColorKeyframeTrack,
 	CompressedTexture,
 	DataTexture,
 	DoubleSide,
@@ -357,7 +358,40 @@ class M2Loader extends Loader {
 
 				}
 
-				// TODO handle animated data
+				if ( color.animated || alpha.animated ) {
+
+					const animations = [];
+
+					for ( let j = 0; j < colorData.tracks.length; j ++ ) {
+
+						const tracks = colorData.tracks[ j ];
+
+						if ( tracks !== undefined ) {
+
+							const clip = new AnimationClip( 'ColorAndAlpha_' + j, - 1, [ ... tracks ] );
+							animations.push( clip );
+
+						}
+
+					}
+
+					for ( let j = 0; j < colorData.globalTracks.length; j ++ ) {
+
+						const globalTracks = colorData.globalTracks[ j ];
+
+						if ( globalTracks !== undefined ) {
+
+							const clip = new AnimationClip( 'GlobalColorAndAlpha_' + j, - 1, [ ... globalTracks ] );
+							animations.push( clip );
+
+						}
+
+					}
+
+					const textureAnimations = animationMap.get( material );
+					textureAnimations.push( ...animations );
+
+				}
 
 			}
 
@@ -400,7 +434,7 @@ class M2Loader extends Loader {
 
 	}
 
-	_buildColors( colorDefinitions /*, globalSequences */ ) {
+	_buildColors( colorDefinitions, globalSequences ) {
 
 		const colors = [];
 
@@ -431,6 +465,82 @@ class M2Loader extends Loader {
 					data.color.constant.fromArray( color.values[ 0 ] );
 					data.color.animated = false;
 
+				} else {
+
+					for ( let j = 0; j < color.timestamps.length; j ++ ) {
+
+						let maxTimeStamp = null;
+
+						if ( color.globalSequence >= 0 ) {
+
+							maxTimeStamp = globalSequences[ color.globalSequence ] / 1000;
+
+						}
+
+						const ti = color.timestamps[ j ];
+						const vi = color.values[ j ];
+
+						const times = [];
+						const values = [];
+
+						// ignore empty tracks
+
+						if ( ti.length === 0 ) {
+
+							data.tracks[ j ] = [];
+							continue;
+
+						}
+
+						// times
+
+						for ( let k = 0; k < ti.length; k ++ ) {
+
+							times.push( ti[ k ] / 1000 );
+
+						}
+
+						if ( maxTimeStamp !== null ) {
+
+							times[ times.length - 1 ] = maxTimeStamp;
+
+						}
+
+						// values
+
+						for ( let k = 0; k < vi.length; k += 3 ) {
+
+							// r,g,b
+
+							values.push( vi[ k ] );
+							values.push( vi[ k + 1 ] );
+							values.push( vi[ k + 2 ] );
+
+						}
+
+						// interpolation type
+
+						const interpolation = this._getInterpolation( color.interpolationType );
+
+						// keyframe track
+
+						if ( maxTimeStamp !== null ) {
+
+							if ( data.globalTracks[ j ] === undefined ) data.globalTracks[ j ] = [];
+
+							data.globalTracks[ j ].push( new ColorKeyframeTrack( '.color', times, values, interpolation ) );
+
+
+						} else {
+
+							if ( data.tracks[ j ] === undefined ) data.tracks[ j ] = [];
+
+							data.tracks[ j ].push( new ColorKeyframeTrack( '.color', times, values, interpolation ) );
+
+						}
+
+					}
+
 				}
 
 				if ( isStaticTrack( alpha ) ) {
@@ -438,11 +548,83 @@ class M2Loader extends Loader {
 					data.alpha.constant = alpha.values[ 0 ][ 0 ];
 					data.alpha.animated = false;
 
+				} else {
+
+					for ( let j = 0; j < alpha.timestamps.length; j ++ ) {
+
+						let maxTimeStamp = null;
+
+						if ( alpha.globalSequence >= 0 ) {
+
+							maxTimeStamp = globalSequences[ alpha.globalSequence ] / 1000;
+
+						}
+
+						const ti = alpha.timestamps[ j ];
+						const vi = alpha.values[ j ];
+
+						const times = [];
+						const values = [];
+
+						// ignore empty tracks
+
+						if ( ti.length === 0 ) {
+
+							data.tracks[ j ] = [];
+							continue;
+
+						}
+
+						// times
+
+						for ( let k = 0; k < ti.length; k ++ ) {
+
+							times.push( ti[ k ] / 1000 );
+
+						}
+
+						if ( maxTimeStamp !== null ) {
+
+							times[ times.length - 1 ] = maxTimeStamp;
+
+						}
+
+						// values
+
+						for ( let k = 0; k < vi.length; k ++ ) {
+
+							// alpha
+
+							values.push( vi[ k ] );
+
+						}
+
+						// interpolation type
+
+						const interpolation = this._getInterpolation( alpha.interpolationType );
+
+						// keyframe track
+
+						if ( maxTimeStamp !== null ) {
+
+							if ( data.globalTracks[ j ] === undefined ) data.globalTracks[ j ] = [];
+
+							data.globalTracks[ j ].push( new NumberKeyframeTrack( '.opacity', times, values, interpolation ) );
+
+
+						} else {
+
+							if ( data.tracks[ j ] === undefined ) data.tracks[ j ] = [];
+
+							data.tracks[ j ].push( new NumberKeyframeTrack( '.opacity', times, values, interpolation ) );
+
+						}
+
+					}
+
 				}
 
 				colors.push( data );
-
-				// TODO: handle animated colors
 
 			}
 
@@ -859,14 +1041,14 @@ class M2Loader extends Loader {
 			const translation = textureTransformDefinition.translation;
 			const rotation = textureTransformDefinition.rotation;
 
+			// translation
+
 			if ( isStaticTrack( translation ) ) {
 
 				data.translation.constant.copy( translation.values[ 0 ] );
 				data.translation.animated = false;
 
 			} else {
-
-				// translation
 
 				for ( let j = 0; j < translation.timestamps.length; j ++ ) {
 
@@ -886,7 +1068,12 @@ class M2Loader extends Loader {
 
 					// ignore empty tracks
 
-					if ( ti.length === 0 ) continue;
+					if ( ti.length === 0 ) {
+
+						data.tracks[ j ] = [];
+						continue;
+
+					}
 
 					// times
 
@@ -968,7 +1155,12 @@ class M2Loader extends Loader {
 
 					// ignore empty tracks
 
-					if ( ti.length === 0 ) continue;
+					if ( ti.length === 0 ) {
+
+						data.tracks[ j ] = [];
+						continue;
+
+					}
 
 					// times
 
@@ -1073,7 +1265,12 @@ class M2Loader extends Loader {
 
 					// ignore empty tracks
 
-					if ( ti.length === 0 ) continue;
+					if ( ti.length === 0 ) {
+
+						data.tracks[ j ] = [];
+						continue;
+
+					}
 
 					// times
 
