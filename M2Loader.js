@@ -104,8 +104,6 @@ class M2Loader extends Loader {
 	*
 	* @param {ArrayBuffer} buffer - The loaded M2 data.
 	* @param {String} url - The URL to the M2 asset.
-	* @param {onLoad} onLoad - A callback function executed when the asset has been loaded.
-	* @param {onError} onError - A callback function executed when an error occurs.
 	*/
 	async parse( buffer, url ) {
 
