@@ -1476,7 +1476,7 @@ class M2Loader extends Loader {
 
 					if ( name === undefined ) {
 
-						console.warn( 'THREE.M2Loader: Unknown animation ID:', sequence.id, i );
+						console.warn( 'THREE.M2Loader: Unknown animation ID:', sequence.id );
 
 					} else {
 
