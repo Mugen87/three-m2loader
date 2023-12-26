@@ -2405,6 +2405,7 @@ class M2SkinLoader extends Loader {
 		const submeshesOffset = parser.readUInt32();
 		const batchesLength = parser.readUInt32();
 		const batchesOffset = parser.readUInt32();
+		const boneCountMax = parser.readUInt32();
 
 		// local vertex list
 
@@ -2469,10 +2470,6 @@ class M2SkinLoader extends Loader {
 			batches.push( batch );
 
 		}
-
-		//
-
-		const boneCountMax = parser.readUInt32();
 
 		// TODO read shadow batches
 
