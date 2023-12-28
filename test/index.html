@@ -16,8 +16,8 @@
 		<script type="importmap">
 			{
 				"imports": {
-					"three": "https://unpkg.com/three@0.159/build/three.module.js",
-					"three/addons/": "https://unpkg.com/three@0.159/examples/jsm/"
+					"three": "https://unpkg.com/three@0.160/build/three.module.js",
+					"three/addons/": "https://unpkg.com/three@0.160/examples/jsm/"
 				}
 			}
 		</script>
@@ -32,7 +32,9 @@
 			import { M2Loader } from '../M2Loader.js';
 
 			const params = {
-				asset: 'cat/druidcat2.m2'
+				asset: 'cat/druidcat2.m2',
+				sequences: 0,
+				globalSequences: 0
 			};
 
 			const assets = [
@@ -48,11 +50,10 @@
 			];
 
 			let camera, scene, renderer, controls, loader, clock;
+			
+			let gui, animationFolder;
 
 			let m2Scene, m2SequenceManager;
-			
-			let currentSequence = null;
-			let currentGlobalSequence = null;
 			
 			init();
 			animate();
@@ -91,8 +92,9 @@
 
 				//
 
-				const gui = new GUI();
-				gui.add( params, 'asset', assets ).onChange( function ( value ) {
+				gui = new GUI();
+				const assetFolder = gui.addFolder( 'Asset' );
+				assetFolder.add( params, 'asset', assets ).onChange( function ( value ) {
 
 					removePreviousAsset();
 					loadAsset( value );
@@ -111,23 +113,54 @@
 					m2Scene = m2;
 					scene.add( m2Scene );
 
-					// animations (optional)
+					// animations
 
 					m2SequenceManager = m2.userData.sequenceManager;
+
+					// the list() methods provide an array with all available sequences (animations)
+
 					const sequences = m2SequenceManager.listSequences();
 					const globalSequences = m2SequenceManager.listGlobalSequences();
 
+					animationFolder = gui.addFolder( 'Animations' );
+
 					if ( sequences.length > 0 ) {
 
-						currentSequence = sequences[ 0 ]; // pick first sequence
-						m2SequenceManager.playSequence( currentSequence );
+						const sequence = sequences[ 0 ]; // pick first sequence
+						m2SequenceManager.playSequence( sequence.id );
+
+						// make all sequences selectable via the UI
+
+						const uiSequences = {};
+
+						for ( let i = 0; i < sequences.length; i ++ ) {
+
+							const sequence = sequences[ i ];
+							uiSequences[ sequence.name ] = sequence.id;
+			
+						}
+
+						animationFolder.add( params, 'sequences', uiSequences ).onChange( onSequenceChange );
 
 					}
 
 					if ( globalSequences.length > 0 ) {
 
-						currentGlobalSequence = globalSequences[ 0 ]; // pick first sequence
-						m2SequenceManager.playGlobalSequence( currentGlobalSequence );
+						const globalSequence = globalSequences[ 0 ]; // pick first sequence
+						m2SequenceManager.playGlobalSequence( globalSequence.id );
+
+						// make all global sequences selectable via the UI
+
+						const uiGlobalSequences = {};
+
+						for ( let i = 0; i < globalSequences.length; i ++ ) {
+
+							const globalSequence = globalSequences[ i ];
+							uiGlobalSequences[ 'globalSequence_' + i ] = globalSequence.id;
+			
+						}
+
+						animationFolder.add( params, 'globalSequences', uiGlobalSequences ).onChange( onGlobalSequenceChange );
 
 					}
 
@@ -166,6 +199,8 @@
 
 				if ( m2Scene ) {
 
+					// meshes
+
 					m2Scene.traverse( function ( object ) {
 
 						if ( object.material ) object.material.dispose();
@@ -176,21 +211,31 @@
 
 					scene.remove( m2Scene );
 
-					if ( currentSequence ) {
+					// animations
 
-						m2SequenceManager.stopSequence( currentSequence );
-						currentSequence = null;
+					m2SequenceManager.stopSequence();
+					m2SequenceManager.stopGlobalSequence();
 
-					}
+					params.sequences = 0;
+					params.globalSequences = 0;
 
-					if ( currentGlobalSequence ) {
-
-						m2SequenceManager.stopGlobalSequence( currentGlobalSequence );
-						currentGlobalSequence = null;
-
-					}
+					animationFolder.destroy();
 
 				}
+
+			}
+
+			function onSequenceChange( id ) {
+
+				m2SequenceManager.stopSequence();
+				m2SequenceManager.playSequence( id );
+
+			}
+
+			function onGlobalSequenceChange( id ) {
+
+				m2SequenceManager.stopGlobalSequence();
+				m2SequenceManager.playGlobalSequence( id );
 
 			}
 

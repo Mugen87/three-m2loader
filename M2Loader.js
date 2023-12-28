@@ -2849,6 +2849,9 @@ class SequenceManager {
 		this._globalSequenceMap = new Map();
 		this._mixers = new Map();
 
+		this._currentSequence = - 1;
+		this._currentGlobalSequence = - 1;
+
 		for ( let i = 0; i < sequences.length; i ++ ) {
 
 			const sequence = sequences[ i ];
@@ -2892,9 +2895,9 @@ class SequenceManager {
 
 	}
 
-	playSequence( seq, variationIndex = 0 ) {
+	playSequence( id, variationIndex = 0 ) {
 
-		const sequence = this._sequenceMap.get( seq.id );
+		const sequence = this._sequenceMap.get( id );
 
 		for ( const animation of sequence ) {
 
@@ -2908,11 +2911,15 @@ class SequenceManager {
 
 		}
 
+		this._currentSequence = id;
+
 	}
 
-	stopSequence( seq ) {
+	stopSequence() {
 
-		const sequence = this._sequenceMap.get( seq.id );
+		if ( this._currentSequence === - 1 ) return;
+
+		const sequence = this._sequenceMap.get( this._currentSequence );
 
 		for ( const animation of sequence ) {
 
@@ -2923,9 +2930,9 @@ class SequenceManager {
 
 	}
 
-	playGlobalSequence( seq ) {
+	playGlobalSequence( id ) {
 
-		const globalSequence = this._globalSequenceMap.get( seq.id );
+		const globalSequence = this._globalSequenceMap.get( id );
 
 		for ( const animation of globalSequence ) {
 
@@ -2935,11 +2942,15 @@ class SequenceManager {
 
 		}
 
+		this._currentGlobalSequence = id;
+
 	}
 
-	stopGlobalSequence( seq ) {
+	stopGlobalSequence() {
 
-		const globalSequence = this._globalSequenceMap.get( seq.id );
+		if ( this._currentGlobalSequence === - 1 ) return;
+
+		const globalSequence = this._globalSequenceMap.get( this._currentGlobalSequence );
 
 		for ( const animation of globalSequence ) {
 
