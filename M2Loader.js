@@ -38,7 +38,8 @@ import {
 	Vector2,
 	Vector3,
 	Vector4,
-	VectorKeyframeTrack
+	VectorKeyframeTrack,
+	AnimationMixer
 } from 'three';
 
 /**
@@ -155,9 +156,11 @@ class M2Loader extends Loader {
 		const textureDefinitions = this._readTextureDefinitions( parser, header );
 		const textureTransformDefinitions = this._readTextureTransformDefinitions( parser, header );
 		const textureWeightDefinitions = this._readTextureWeightDefinitions( parser, header );
-		const sequences = this._readSequences( parser, header ); // eslint-disable-line no-unused-vars
+		const sequences = this._readSequences( parser, header );
 		const globalSequences = this._readGlobalSequences( parser, header );
 		const boneDefinitions = this._readBoneDefinitions( parser, header );
+
+		const sequenceManager = new SequenceManager( sequences, globalSequences );
 
 		// lookup tables
 
@@ -187,26 +190,25 @@ class M2Loader extends Loader {
 		// build scene
 
 		const geometries = this._buildGeometries( skinData, vertices );
-		const skeleton = this._buildSkeleton( boneDefinitions, globalSequences );
+		const skeletonData = this._buildSkeleton( boneDefinitions, globalSequences, sequenceManager );
 		const materials = this._buildMaterials( materialDefinitions );
 		const textureTransforms = this._buildTextureTransforms( textureTransformDefinitions, globalSequences );
 		const textureWeights = this._buildTextureWeights( textureWeightDefinitions, globalSequences );
 		const colors = this._buildColors( colorDefinitions, globalSequences );
-		const group = this._buildObjects( name, geometries, skeleton, materials, colors, textures, textureTransforms, textureWeights, skinData, lookupTables );
+		const group = this._buildObjects( name, geometries, skeletonData, materials, colors, textures, textureTransforms, textureWeights, skinData, lookupTables, sequenceManager );
 
-		this._postprocessAnimations( group.userData.animationMap, sequences );
+		group.userData.sequenceManager = sequenceManager;
 
 		return group;
 
 	}
 
-	_buildObjects( name, geometries, skeleton, materials, colors, textures, textureTransforms, textureWeights, skinData, lookupTables ) {
+	_buildObjects( name, geometries, skeletonData, materials, colors, textures, textureTransforms, textureWeights, skinData, lookupTables, sequenceManager ) {
 
 		const group = new Group();
 		group.name = name;
 
-		const animationMap = new Map();
-		group.userData.animationMap = animationMap;
+		const skeleton = skeletonData.skeleton;
 
 		// meshes
 
@@ -219,12 +221,6 @@ class M2Loader extends Loader {
 			const geometry = geometries[ batch.skinSectionIndex ];
 			const material = materials[ batch.materialIndex ].clone(); // cloning is required since the same material might be animated differently
 
-			if ( animationMap.has( material ) === false ) {
-
-				animationMap.set( material, [] ); // store animations targeting this material
-
-			}
-
 			// texture
 
 			const textureIndex = lookupTables.textures[ batch.textureComboIndex ];
@@ -232,12 +228,6 @@ class M2Loader extends Loader {
 			if ( textureIndex !== undefined ) {
 
 				material.map = textures[ textureIndex ].clone(); // cloning is required since the same texture might be animated differently
-
-				if ( animationMap.has( material.map ) === false ) {
-
-					animationMap.set( material.map, [] ); // store animations targeting this texture
-
-				}
 
 			}
 
@@ -268,24 +258,20 @@ class M2Loader extends Loader {
 
 					if ( translation.animated || rotation.animated ) {
 
-						const animations = [];
 
 						for ( let j = 0; j < data.tracks.length; j ++ ) {
 
 							const clip = new AnimationClip( 'TextureTransform_' + j, - 1, [ ... data.tracks[ j ] ] );
-							animations.push( clip );
+							sequenceManager.addAnimationToSequence( clip, material.map, j );
 
 						}
 
 						for ( let j = 0; j < data.globalTracks.length; j ++ ) {
 
 							const clip = new AnimationClip( 'GlobalTextureTransform_' + j, - 1, [ ... data.globalTracks[ j ] ] );
-							animations.push( clip );
+							sequenceManager.addAnimationToGlobalSequence( clip, material.map, j );
 
 						}
-
-						const textureAnimations = animationMap.get( material.map );
-						textureAnimations.push( ...animations );
 
 					}
 
@@ -314,24 +300,19 @@ class M2Loader extends Loader {
 						const tracks = data.tracks;
 						const globalTracks = data.globalTracks;
 
-						const animations = [];
-
 						for ( let j = 0; j < tracks.length; j ++ ) {
 
 							const clip = new AnimationClip( 'Opacity_' + j, - 1, [ ...tracks[ j ] ] );
-							animations.push( clip );
+							sequenceManager.addAnimationToSequence( clip, material, j );
 
 						}
 
 						for ( let j = 0; j < globalTracks.length; j ++ ) {
 
 							const clip = new AnimationClip( 'GlobalOpacity_' + j, - 1, [ ...globalTracks[ j ] ] );
-							animations.push( clip );
+							sequenceManager.addAnimationToGlobalSequence( clip, material, j );
 
 						}
-
-						const materialAnimations = animationMap.get( material );
-						materialAnimations.push( ...animations );
 
 					}
 
@@ -362,8 +343,6 @@ class M2Loader extends Loader {
 
 				if ( color.animated || alpha.animated ) {
 
-					const animations = [];
-
 					for ( let j = 0; j < colorData.tracks.length; j ++ ) {
 
 						const tracks = colorData.tracks[ j ];
@@ -371,7 +350,7 @@ class M2Loader extends Loader {
 						if ( tracks !== undefined ) {
 
 							const clip = new AnimationClip( 'ColorAndAlpha_' + j, - 1, [ ... tracks ] );
-							animations.push( clip );
+							sequenceManager.addAnimationToSequence( clip, material, j );
 
 						}
 
@@ -384,14 +363,11 @@ class M2Loader extends Loader {
 						if ( globalTracks !== undefined ) {
 
 							const clip = new AnimationClip( 'GlobalColorAndAlpha_' + j, - 1, [ ... globalTracks ] );
-							animations.push( clip );
+							sequenceManager.addAnimationToGlobalSequence( clip, material, j );
 
 						}
 
 					}
-
-					const textureAnimations = animationMap.get( material );
-					textureAnimations.push( ...animations );
 
 				}
 
@@ -416,9 +392,11 @@ class M2Loader extends Loader {
 
 		}
 
-		//
+		// skeleton
 
 		if ( skeleton !== null ) {
+
+			// bones must be part of the scene hierarchy
 
 			for ( const bone of skeleton.bones ) {
 
@@ -426,9 +404,28 @@ class M2Loader extends Loader {
 
 			}
 
-			animationMap.set( group, skeleton.userData.animations );
+			// animations
 
-			delete skeleton.userData;
+			const tracks = skeletonData.tracks;
+			const globalTracks = skeletonData.globalTracks;
+
+			for ( let j = 0; j < tracks.length; j ++ ) {
+
+				if ( tracks[ j ] === undefined ) continue;
+
+				const clip = new AnimationClip( 'SkeletonAnimation_' + j, - 1, [ ... tracks[ j ] ] );
+				sequenceManager.addAnimationToSequence( clip, group, j );
+
+			}
+
+			for ( let j = 0; j < globalTracks.length; j ++ ) {
+
+				if ( globalTracks[ j ] === undefined ) continue;
+
+				const clip = new AnimationClip( 'GlobalSkeletonAnimation_' + j, - 1, [ ... globalTracks[ j ] ] );
+				sequenceManager.addAnimationToGlobalSequence( clip, group, j );
+
+			}
 
 		}
 
@@ -759,15 +756,18 @@ class M2Loader extends Loader {
 
 	_buildSkeleton( boneDefinitions, globalSequences ) {
 
+		const data = {
+			tracks: [],
+			globalTracks: [],
+			skeleton: null
+		};
+
 		// TODO: Find out a better way for detecting static models
 		// Problem: Even static models might have bone definitions
 
-		if ( boneDefinitions.length < 8 ) return null;
+		if ( boneDefinitions.length < 8 ) return data;
 
 		const bones = [];
-		const animations = [];
-		const keyframes = [];
-		const globalKeyframes = [];
 
 		for ( let i = 0; i < boneDefinitions.length; i ++ ) {
 
@@ -841,16 +841,16 @@ class M2Loader extends Loader {
 
 				if ( maxTimeStamp !== null ) {
 
-					if ( globalKeyframes[ j ] === undefined ) globalKeyframes[ j ] = [];
+					if ( data.globalTracks[ j ] === undefined ) data.globalTracks[ j ] = [];
 
-					globalKeyframes[ j ].push( new VectorKeyframeTrack( bone.uuid + '.position', times, values, interpolation ) );
+					data.globalTracks[ j ].push( new VectorKeyframeTrack( bone.uuid + '.position', times, values, interpolation ) );
 
 
 				} else {
 
-					if ( keyframes[ j ] === undefined ) keyframes[ j ] = [];
+					if ( data.tracks[ j ] === undefined ) data.tracks[ j ] = [];
 
-					keyframes[ j ].push( new VectorKeyframeTrack( bone.uuid + '.position', times, values, interpolation ) );
+					data.tracks[ j ].push( new VectorKeyframeTrack( bone.uuid + '.position', times, values, interpolation ) );
 
 				}
 
@@ -909,16 +909,16 @@ class M2Loader extends Loader {
 
 				if ( maxTimeStamp !== null ) {
 
-					if ( globalKeyframes[ j ] === undefined ) globalKeyframes[ j ] = [];
+					if ( data.globalTracks[ j ] === undefined ) data.globalTracks[ j ] = [];
 
-					globalKeyframes[ j ].push( new QuaternionKeyframeTrack( bone.uuid + '.quaternion', times, values, interpolation ) );
+					data.globalTracks[ j ].push( new QuaternionKeyframeTrack( bone.uuid + '.quaternion', times, values, interpolation ) );
 
 
 				} else {
 
-					if ( keyframes[ j ] === undefined ) keyframes[ j ] = [];
+					if ( data.tracks[ j ] === undefined ) data.tracks[ j ] = [];
 
-					keyframes[ j ].push( new QuaternionKeyframeTrack( bone.uuid + '.quaternion', times, values, interpolation ) );
+					data.tracks[ j ].push( new QuaternionKeyframeTrack( bone.uuid + '.quaternion', times, values, interpolation ) );
 
 				}
 
@@ -976,16 +976,16 @@ class M2Loader extends Loader {
 
 				if ( maxTimeStamp !== null ) {
 
-					if ( globalKeyframes[ j ] === undefined ) globalKeyframes[ j ] = [];
+					if ( data.globalTracks[ j ] === undefined ) data.globalTracks[ j ] = [];
 
-					globalKeyframes[ j ].push( new VectorKeyframeTrack( bone.uuid + '.scale', times, values, interpolation ) );
+					data.globalTracks[ j ].push( new VectorKeyframeTrack( bone.uuid + '.scale', times, values, interpolation ) );
 
 
 				} else {
 
-					if ( keyframes[ j ] === undefined ) keyframes[ j ] = [];
+					if ( data.tracks[ j ] === undefined ) data.tracks[ j ] = [];
 
-					keyframes[ j ].push( new VectorKeyframeTrack( bone.uuid + '.scale', times, values, interpolation ) );
+					data.tracks[ j ].push( new VectorKeyframeTrack( bone.uuid + '.scale', times, values, interpolation ) );
 
 				}
 
@@ -993,29 +993,9 @@ class M2Loader extends Loader {
 
 		}
 
-		for ( let j = 0; j < keyframes.length; j ++ ) {
+		data.skeleton = new Skeleton( bones );
 
-			if ( keyframes[ j ] === undefined ) continue;
-
-			const clip = new AnimationClip( 'SkeletonAnimation_' + j, - 1, [ ... keyframes[ j ] ] );
-			animations.push( clip );
-
-		}
-
-		for ( let j = 0; j < globalKeyframes.length; j ++ ) {
-
-			if ( globalKeyframes[ j ] === undefined ) continue;
-
-			const clip = new AnimationClip( 'GlobalSkeletonAnimation_' + j, - 1, [ ... globalKeyframes[ j ] ] );
-			animations.push( clip );
-
-		}
-
-		const skeleton = new Skeleton( bones );
-		skeleton.userData = {};
-		skeleton.userData.animations = animations;
-
-		return skeleton;
+		return data;
 
 	}
 
@@ -1455,38 +1435,6 @@ class M2Loader extends Loader {
 		}
 
 		return promises;
-
-	}
-
-	_postprocessAnimations( animationMap, sequences ) {
-
-		for ( const animations of animationMap.values() ) {
-
-			if ( animations.length >= sequences.length ) {
-
-				for ( let i = 0; i < sequences.length; i ++ ) {
-
-					const sequence = sequences[ i ];
-
-					const clip = animations[ i ];
-
-					const name = M2_ANIMATION_LIST[ sequence.id ];
-
-					if ( name === undefined ) {
-
-						console.warn( 'THREE.M2Loader: Unknown animation ID:', sequence.id );
-
-					} else {
-
-						clip.name = name;
-
-					}
-
-				}
-
-			}
-
-		}
 
 	}
 
@@ -2887,6 +2835,184 @@ class BinaryParser {
 		this.offset = this._savedOffsets.pop();
 
 	}
+
+}
+
+class SequenceManager {
+
+	constructor( sequences, globalSequences ) {
+
+		this.sequences = sequences;
+		this.globalSequences = globalSequences;
+
+		this._sequenceMap = new Map();
+		this._globalSequenceMap = new Map();
+		this._mixers = new Map();
+
+		for ( let i = 0; i < sequences.length; i ++ ) {
+
+			const sequence = sequences[ i ];
+			this._sequenceMap.set( sequence.id, [] );
+
+		}
+
+		for ( let i = 0; i < globalSequences.length; i ++ ) {
+
+			this._globalSequenceMap.set( i, [] );
+
+		}
+
+	}
+
+	addAnimationToSequence( clip, root, i ) {
+
+		const sequence = this.sequences[ i ];
+
+		const animations = this._sequenceMap.get( sequence.id );
+		animations.push( { clip, root, variationIndex: sequence.variationIndex } );
+
+		if ( this._mixers.has( root ) === false ) {
+
+			this._mixers.set( root, new AnimationMixer( root ) );
+
+		}
+
+	}
+
+	addAnimationToGlobalSequence( clip, root, i ) {
+
+		const globalSequence = this._globalSequenceMap.get( i );
+		globalSequence.push( { clip, root } );
+
+		if ( this._mixers.has( root ) === false ) {
+
+			this._mixers.set( root, new AnimationMixer( root ) );
+
+		}
+
+	}
+
+	playSequence( seq, variationIndex = 0 ) {
+
+		const sequence = this._sequenceMap.get( seq.id );
+
+		for ( const animation of sequence ) {
+
+			if ( animation.variationIndex === variationIndex ) {
+
+				const mixer = this._mixers.get( animation.root );
+				const action = mixer.clipAction( animation.clip );
+				action.play();
+
+			}
+
+		}
+
+	}
+
+	stopSequence( seq ) {
+
+		const sequence = this._sequenceMap.get( seq.id );
+
+		for ( const animation of sequence ) {
+
+			const mixer = this._mixers.get( animation.root );
+			mixer.stopAllAction();
+
+		}
+
+	}
+
+	playGlobalSequence( seq ) {
+
+		const globalSequence = this._globalSequenceMap.get( seq.id );
+
+		for ( const animation of globalSequence ) {
+
+			const mixer = this._mixers.get( animation.root );
+			const action = mixer.clipAction( animation.clip );
+			action.play();
+
+		}
+
+	}
+
+	stopGlobalSequence( seq ) {
+
+		const globalSequence = this._globalSequenceMap.get( seq.id );
+
+		for ( const animation of globalSequence ) {
+
+			const mixer = this._mixers.get( animation.root );
+			mixer.stopAllAction();
+
+		}
+
+	}
+
+	listSequences() {
+
+		const list = [];
+
+		for ( const id of this._sequenceMap.keys() ) {
+
+			const name = M2_ANIMATION_LIST[ id ];
+
+			if ( name === undefined ) {
+
+				console.warn( 'THREE.M2Loader: Unknown animation ID:', id );
+				name = '';
+
+			}
+
+			list.push( {
+				id: id,
+				name: name
+
+			} );
+
+		}
+
+		list.sort( sortId );
+
+		return list;
+
+	}
+
+	listGlobalSequences() {
+
+		const list = [];
+
+		for ( const id of this._globalSequenceMap.keys() ) {
+
+			list.push( {
+				id: id
+			} );
+
+		}
+
+		list.sort( sortId );
+
+		return list;
+
+	}
+
+	update( delta ) {
+
+		for ( const mixer of this._mixers.values() ) {
+
+			mixer.update( delta );
+
+		}
+
+	}
+
+}
+
+function sortId( a, b ) {
+
+	return a.id > b.id;
+
 
 }
 

@@ -49,9 +49,10 @@
 
 			let camera, scene, renderer, controls, loader, clock;
 
-			const mixers = [];
+			let m2Scene, m2SequenceManager;
 			
-			let m2Scene;
+			let currentSequence = null;
+			let currentGlobalSequence = null;
 			
 			init();
 			animate();
@@ -112,26 +113,22 @@
 
 					// animations (optional)
 
-					const animationMap = m2.userData.animationMap;
+					m2SequenceManager = m2.userData.sequenceManager;
+					const sequences = m2SequenceManager.listSequences();
+					const globalSequences = m2SequenceManager.listGlobalSequences();
 
-					for ( const entry of animationMap ) {
+					if ( sequences.length > 0 ) {
 
-						// "object" represents an animated three.js entity like a mesh, material or texture
-						// "animations" represents a collection of animation clips
+						currentSequence = sequences[ 0 ]; // pick first sequence
+						m2SequenceManager.playSequence( currentSequence );
 
-						const [ object, animations ] = entry;
+					}
 
-						if ( animations.length > 0 ) {
+					if ( globalSequences.length > 0 ) {
 
-							const mixer = new THREE.AnimationMixer( object );
-							mixers.push( mixer );
+						currentGlobalSequence = globalSequences[ 0 ]; // pick first sequence
+						m2SequenceManager.playGlobalSequence( currentGlobalSequence );
 
-							const clip = animations[ 0 ]; // play first animation
-							const action = mixer.clipAction( clip );
-							action.play();
-
-						}
-			
 					}
 
 				} );
@@ -155,9 +152,9 @@
 
 				const delta = clock.getDelta();
 
-				for ( let i = 0; i < mixers.length; i ++ ) {
+				if ( m2SequenceManager ) {
 
-					mixers[ i ].update( delta );
+					m2SequenceManager.update( delta );
 
 				}
 
@@ -179,13 +176,19 @@
 
 					scene.remove( m2Scene );
 
-					for ( let i = 0; i < mixers.length; i ++ ) {
+					if ( currentSequence ) {
 
-						mixers[ i ].stopAllAction();
+						m2SequenceManager.stopSequence( currentSequence );
+						currentSequence = null;
 
 					}
 
-					mixers.length = 0;
+					if ( currentGlobalSequence ) {
+
+						m2SequenceManager.stopGlobalSequence( currentGlobalSequence );
+						currentGlobalSequence = null;
+
+					}
 
 				}
 
