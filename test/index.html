@@ -34,7 +34,7 @@
 			const params = {
 				asset: 'cat/druidcat2.m2',
 				sequences: 0,
-				globalSequences: 0
+				playGlobalSequences: true
 			};
 
 			const assets = [
@@ -146,22 +146,10 @@
 
 					if ( globalSequences.length > 0 ) {
 
-						const globalSequence = globalSequences[ 0 ]; // pick first sequence
-						m2SequenceManager.playGlobalSequence( globalSequence.id );
-
-						// make all global sequences selectable via the UI
-
-						const uiGlobalSequences = {};
-
-						for ( let i = 0; i < globalSequences.length; i ++ ) {
-
-							const globalSequence = globalSequences[ i ];
-							uiGlobalSequences[ 'globalSequence_' + i ] = globalSequence.id;
+						m2SequenceManager.playGlobalSequences();
 			
-						}
-
-						animationFolder.add( params, 'globalSequences', uiGlobalSequences ).onChange( onGlobalSequenceChange );
-
+						animationFolder.add( params, 'playGlobalSequences' ).onChange( onGlobalSequenceChange );
+			
 					}
 
 				} );
@@ -214,10 +202,10 @@
 					// animations
 
 					m2SequenceManager.stopSequence();
-					m2SequenceManager.stopGlobalSequence();
+					m2SequenceManager.stopGlobalSequences();
 
 					params.sequences = 0;
-					params.globalSequences = 0;
+					params.playGlobalSequences = true;
 
 					animationFolder.destroy();
 
@@ -232,10 +220,17 @@
 
 			}
 
-			function onGlobalSequenceChange( id ) {
+			function onGlobalSequenceChange( value ) {
 
-				m2SequenceManager.stopGlobalSequence();
-				m2SequenceManager.playGlobalSequence( id );
+				if ( value === true ) {
+
+					m2SequenceManager.playGlobalSequences();
+
+				} else {
+
+					m2SequenceManager.stopGlobalSequences();
+
+				}
 
 			}
 

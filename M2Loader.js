@@ -258,17 +258,23 @@ class M2Loader extends Loader {
 
 					if ( translation.animated || rotation.animated ) {
 
+						const tracks = data.tracks;
+						const globalTracks = data.globalTracks;
 
-						for ( let j = 0; j < data.tracks.length; j ++ ) {
+						for ( let j = 0; j < tracks.length; j ++ ) {
 
-							const clip = new AnimationClip( 'TextureTransform_' + j, - 1, [ ... data.tracks[ j ] ] );
+							if ( tracks[ j ] === undefined ) continue;
+
+							const clip = new AnimationClip( 'TextureTransform_' + j, - 1, [ ...tracks[ j ] ] );
 							sequenceManager.addAnimationToSequence( clip, material.map, j );
 
 						}
 
-						for ( let j = 0; j < data.globalTracks.length; j ++ ) {
+						for ( let j = 0; j < globalTracks.length; j ++ ) {
 
-							const clip = new AnimationClip( 'GlobalTextureTransform_' + j, - 1, [ ... data.globalTracks[ j ] ] );
+							if ( globalTracks[ j ] === undefined ) continue;
+
+							const clip = new AnimationClip( 'GlobalTextureTransform_' + j, - 1, [ ...globalTracks[ j ] ] );
 							sequenceManager.addAnimationToGlobalSequence( clip, material.map, j );
 
 						}
@@ -302,12 +308,16 @@ class M2Loader extends Loader {
 
 						for ( let j = 0; j < tracks.length; j ++ ) {
 
+							if ( tracks[ j ] === undefined ) continue;
+
 							const clip = new AnimationClip( 'Opacity_' + j, - 1, [ ...tracks[ j ] ] );
 							sequenceManager.addAnimationToSequence( clip, material, j );
 
 						}
 
 						for ( let j = 0; j < globalTracks.length; j ++ ) {
+
+							if ( globalTracks[ j ] === undefined ) continue;
 
 							const clip = new AnimationClip( 'GlobalOpacity_' + j, - 1, [ ...globalTracks[ j ] ] );
 							sequenceManager.addAnimationToGlobalSequence( clip, material, j );
@@ -347,12 +357,10 @@ class M2Loader extends Loader {
 
 						const tracks = colorData.tracks[ j ];
 
-						if ( tracks !== undefined ) {
+						if ( tracks === undefined ) continue;
 
-							const clip = new AnimationClip( 'ColorAndAlpha_' + j, - 1, [ ... tracks ] );
-							sequenceManager.addAnimationToSequence( clip, material, j );
-
-						}
+						const clip = new AnimationClip( 'ColorAndAlpha_' + j, - 1, [ ... tracks ] );
+						sequenceManager.addAnimationToSequence( clip, material, j );
 
 					}
 
@@ -360,12 +368,10 @@ class M2Loader extends Loader {
 
 						const globalTracks = colorData.globalTracks[ j ];
 
-						if ( globalTracks !== undefined ) {
+						if ( globalTracks === undefined ) continue;
 
-							const clip = new AnimationClip( 'GlobalColorAndAlpha_' + j, - 1, [ ... globalTracks ] );
-							sequenceManager.addAnimationToGlobalSequence( clip, material, j );
-
-						}
+						const clip = new AnimationClip( 'GlobalColorAndAlpha_' + j, - 1, [ ... globalTracks ] );
+						sequenceManager.addAnimationToGlobalSequence( clip, material, j );
 
 					}
 
@@ -525,9 +531,9 @@ class M2Loader extends Loader {
 
 						if ( maxTimeStamp !== null ) {
 
-							if ( data.globalTracks[ j ] === undefined ) data.globalTracks[ j ] = [];
+							if ( data.globalTracks[ color.globalSequence ] === undefined ) data.globalTracks[ color.globalSequence ] = [];
 
-							data.globalTracks[ j ].push( new ColorKeyframeTrack( '.color', times, values, interpolation ) );
+							data.globalTracks[ color.globalSequence ].push( new ColorKeyframeTrack( '.color', times, values, interpolation ) );
 
 
 						} else {
@@ -606,9 +612,9 @@ class M2Loader extends Loader {
 
 						if ( maxTimeStamp !== null ) {
 
-							if ( data.globalTracks[ j ] === undefined ) data.globalTracks[ j ] = [];
+							if ( data.globalTracks[ alpha.globalSequence ] === undefined ) data.globalTracks[ alpha.globalSequence ] = [];
 
-							data.globalTracks[ j ].push( new NumberKeyframeTrack( '.opacity', times, values, interpolation ) );
+							data.globalTracks[ alpha.globalSequence ].push( new NumberKeyframeTrack( '.opacity', times, values, interpolation ) );
 
 
 						} else {
@@ -841,9 +847,9 @@ class M2Loader extends Loader {
 
 				if ( maxTimeStamp !== null ) {
 
-					if ( data.globalTracks[ j ] === undefined ) data.globalTracks[ j ] = [];
+					if ( data.globalTracks[ translationData.globalSequence ] === undefined ) data.globalTracks[ translationData.globalSequence ] = [];
 
-					data.globalTracks[ j ].push( new VectorKeyframeTrack( bone.uuid + '.position', times, values, interpolation ) );
+					data.globalTracks[ translationData.globalSequence ].push( new VectorKeyframeTrack( bone.uuid + '.position', times, values, interpolation ) );
 
 
 				} else {
@@ -909,9 +915,9 @@ class M2Loader extends Loader {
 
 				if ( maxTimeStamp !== null ) {
 
-					if ( data.globalTracks[ j ] === undefined ) data.globalTracks[ j ] = [];
+					if ( data.globalTracks[ rotationData.globalSequence ] === undefined ) data.globalTracks[ rotationData.globalSequence ] = [];
 
-					data.globalTracks[ j ].push( new QuaternionKeyframeTrack( bone.uuid + '.quaternion', times, values, interpolation ) );
+					data.globalTracks[ rotationData.globalSequence ].push( new QuaternionKeyframeTrack( bone.uuid + '.quaternion', times, values, interpolation ) );
 
 
 				} else {
@@ -976,9 +982,9 @@ class M2Loader extends Loader {
 
 				if ( maxTimeStamp !== null ) {
 
-					if ( data.globalTracks[ j ] === undefined ) data.globalTracks[ j ] = [];
+					if ( data.globalTracks[ scaleData.globalSequence ] === undefined ) data.globalTracks[ scaleData.globalSequence ] = [];
 
-					data.globalTracks[ j ].push( new VectorKeyframeTrack( bone.uuid + '.scale', times, values, interpolation ) );
+					data.globalTracks[ scaleData.globalSequence ].push( new VectorKeyframeTrack( bone.uuid + '.scale', times, values, interpolation ) );
 
 
 				} else {
@@ -1090,9 +1096,9 @@ class M2Loader extends Loader {
 
 					if ( maxTimeStamp !== null ) {
 
-						if ( data.globalTracks[ j ] === undefined ) data.globalTracks[ j ] = [];
+						if ( data.globalTracks[ translation.globalSequence ] === undefined ) data.globalTracks[ translation.globalSequence ] = [];
 
-						data.globalTracks[ j ].push( new VectorKeyframeTrack( '.offset', times, values, interpolation ) );
+						data.globalTracks[ translation.globalSequence ].push( new VectorKeyframeTrack( '.offset', times, values, interpolation ) );
 
 
 					} else {
@@ -1180,9 +1186,9 @@ class M2Loader extends Loader {
 
 					if ( maxTimeStamp !== null ) {
 
-						if ( data.globalTracks[ j ] === undefined ) data.globalTracks[ j ] = [];
+						if ( data.globalTracks[ rotation.globalSequence ] === undefined ) data.globalTracks[ rotation.globalSequence ] = [];
 
-						data.globalTracks[ j ].push( new NumberKeyframeTrack( '.rotation', times, values, interpolation ) );
+						data.globalTracks[ rotation.globalSequence ].push( new NumberKeyframeTrack( '.rotation', times, values, interpolation ) );
 
 
 					} else {
@@ -1284,9 +1290,9 @@ class M2Loader extends Loader {
 
 					if ( maxTimeStamp !== null ) {
 
-						if ( data.globalTracks[ j ] === undefined ) data.globalTracks[ j ] = [];
+						if ( data.globalTracks[ textureWeightDefinition.globalSequence ] === undefined ) data.globalTracks[ textureWeightDefinition.globalSequence ] = [];
 
-						data.globalTracks[ j ].push( new NumberKeyframeTrack( '.opacity', times, values, interpolation ) );
+						data.globalTracks[ textureWeightDefinition.globalSequence ].push( new NumberKeyframeTrack( '.opacity', times, values, interpolation ) );
 
 					} else {
 
@@ -2850,9 +2856,9 @@ class SequenceManager {
 		this._sequenceMap = new Map();
 		this._globalSequenceMap = new Map();
 		this._mixers = new Map();
+		this._globalMixers = new Map();
 
 		this._currentSequence = - 1;
-		this._currentGlobalSequence = - 1;
 
 		for ( let i = 0; i < sequences.length; i ++ ) {
 
@@ -2889,9 +2895,9 @@ class SequenceManager {
 		const globalSequence = this._globalSequenceMap.get( i );
 		globalSequence.push( { clip, root } );
 
-		if ( this._mixers.has( root ) === false ) {
+		if ( this._globalMixers.has( root ) === false ) {
 
-			this._mixers.set( root, new AnimationMixer( root ) );
+			this._globalMixers.set( root, new AnimationMixer( root ) );
 
 		}
 
@@ -2932,32 +2938,32 @@ class SequenceManager {
 
 	}
 
-	playGlobalSequence( id ) {
+	playGlobalSequences() {
 
-		const globalSequence = this._globalSequenceMap.get( id );
+		for ( const globalSequence of this._globalSequenceMap.values() ) {
 
-		for ( const animation of globalSequence ) {
+			for ( const animation of globalSequence ) {
 
-			const mixer = this._mixers.get( animation.root );
-			const action = mixer.clipAction( animation.clip );
-			action.play();
+				const mixer = this._globalMixers.get( animation.root );
+				const action = mixer.clipAction( animation.clip );
+				action.play();
+
+			}
 
 		}
 
-		this._currentGlobalSequence = id;
-
 	}
 
-	stopGlobalSequence() {
+	stopGlobalSequences() {
 
-		if ( this._currentGlobalSequence === - 1 ) return;
+		for ( const globalSequence of this._globalSequenceMap.values() ) {
 
-		const globalSequence = this._globalSequenceMap.get( this._currentGlobalSequence );
+			for ( const animation of globalSequence ) {
 
-		for ( const animation of globalSequence ) {
+				const mixer = this._globalMixers.get( animation.root );
+				mixer.stopAllAction();
 
-			const mixer = this._mixers.get( animation.root );
-			mixer.stopAllAction();
+			}
 
 		}
 
@@ -3023,6 +3029,12 @@ class SequenceManager {
 	update( delta ) {
 
 		for ( const mixer of this._mixers.values() ) {
+
+			mixer.update( delta );
+
+		}
+
+		for ( const mixer of this._globalMixers.values() ) {
 
 			mixer.update( delta );
 
