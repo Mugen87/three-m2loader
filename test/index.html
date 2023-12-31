@@ -120,7 +120,6 @@
 					// the list() methods provide arrays with all available sequences (animations)
 
 					const sequences = m2SequenceManager.listSequences();
-					const globalSequences = m2SequenceManager.listGlobalSequences();
 
 					animationFolder = gui.addFolder( 'Animations' );
 
@@ -144,11 +143,11 @@
 
 					}
 
-					if ( globalSequences.length > 0 ) {
+					if ( m2SequenceManager.hasGlobalSequences() ) {
 
 						m2SequenceManager.playGlobalSequences();
 			
-						animationFolder.add( params, 'playGlobalSequences' ).onChange( onGlobalSequenceChange );
+						animationFolder.add( params, 'playGlobalSequences' ).onChange( onPlayGlobalSequencesChange );
 			
 					}
 
@@ -220,7 +219,7 @@
 
 			}
 
-			function onGlobalSequenceChange( value ) {
+			function onPlayGlobalSequencesChange( value ) {
 
 				if ( value === true ) {
 

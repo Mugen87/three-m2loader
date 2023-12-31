@@ -3008,21 +3008,9 @@ class SequenceManager {
 
 	}
 
-	listGlobalSequences() {
+	hasGlobalSequences() {
 
-		const list = [];
-
-		for ( let i = 0; i < this.globalSequences.length; i ++ ) {
-
-			list.push( {
-				id: i
-			} );
-
-		}
-
-		list.sort( sortId );
-
-		return list;
+		return this.globalSequences.length > 0;
 
 	}
 
