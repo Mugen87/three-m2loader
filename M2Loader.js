@@ -2971,40 +2971,49 @@ class SequenceManager {
 
 	listSequences() {
 
-		const list = [];
+		const sequenceIds = new Set();
 
-		for ( let i = 0; i < this.sequences.length; i ++ ) {
-
-			const sequence = this.sequences[ i ];
-
+		for ( const sequence of this.sequences ) {
 			// TODO: Add support for sequences with external animation data (.anim files)
-
 			if ( sequence.flags & M2_SEQUENCE_EMBEDDED_DATA ) {
-
-				const id = sequence.id;
-
-				const name = M2_ANIMATION_LIST[ id ];
-
-				if ( name === undefined ) {
-
-					console.warn( 'THREE.M2Loader: Unknown animation ID:', id );
-					name = '';
-
-				}
-
-				list.push( {
-					id: id,
-					name: name
-
-				} );
-
+				sequenceIds.add( sequence.id );
 			}
-
 		}
 
-		list.sort( sortId );
+		const sequenceIdsSorted = Array.from( sequenceIds ).sort( compareNumber );
+
+		const list = [];
+
+		for ( const sequenceId of sequenceIdsSorted ) {
+			let name = M2_ANIMATION_LIST[ sequenceId ];
+
+			if ( name === undefined ) {
+				console.warn( 'THREE.M2Loader: Unknown animation ID:', sequenceId );
+				name = '';
+			}
+
+			list.push( {
+				id: sequenceId,
+				name: name
+			} );
+		}
 
 		return list;
+
+	}
+	
+	listVariations( id ) {
+
+		const variationIndices = new Set();
+
+		for ( const sequence of this.sequences ) {
+			// TODO: Add support for sequences with external animation data (.anim files)
+			if ( sequence.flags & M2_SEQUENCE_EMBEDDED_DATA && sequence.id === id ) {
+				variationIndices.add( sequence.variationIndex );
+			}
+		}
+
+		return Array.from( variationIndices ).sort( compareNumber );
 
 	}
 
@@ -3032,11 +3041,8 @@ class SequenceManager {
 
 }
 
-function sortId( a, b ) {
-
-	return a.id > b.id;
-
-
+function compareNumber( a, b ) {
+	return a - b;
 }
 
 // chunks
