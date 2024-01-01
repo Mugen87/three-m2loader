@@ -53,7 +53,7 @@
 
 			let camera, scene, renderer, controls, loader, clock;
 			
-			let gui, animationFolder, variationControl;
+			let gui, animationFolder, variationCtrl;
 
 			let m2Scene, m2SequenceManager;
 			
@@ -117,52 +117,42 @@
 
 					// animations
 
+					animationFolder = gui.addFolder( 'Animations' );
+
 					m2SequenceManager = m2.userData.sequenceManager;
 
-					// the list() methods provide arrays with all available sequences (animations)
+					// the list() method provide arrays with all available sequences (animations)
 
 					const sequences = m2SequenceManager.listSequences();
 
-					animationFolder = gui.addFolder( 'Animations' );
-
 					if ( sequences.length > 0 ) {
 
-						const firstSequence = sequences[ 0 ];
-
-						const variations = m2SequenceManager.listVariations ( firstSequence.id );
-
-						params.sequence = firstSequence.id;
-						params.variation = variations[ 0 ];
-
-						m2SequenceManager.playSequence( params.sequence, params.variation );
-
-
-						// make all sequences selectable via the UI
+						// make all sequences and variations selectable via the UI
 
 						const uiSequences = {};
 
-						for ( const sequence of sequences ) {
+						for ( let i = 0; i < sequences.length; i ++ ) {
+
+							const sequence = sequences[ i ];
 							uiSequences[ sequence.name ] = sequence.id;
+			
 						}
 
 						animationFolder.add( params, 'sequence', uiSequences ).onChange( onSequenceChange );
+						variationCtrl = animationFolder.add( params, 'variation', [] ).onChange( onVariationChange );
 
+						// play first sequence
 
-						// add variations
-
-						variationControl = animationFolder.add (params, 'variation', variations );
-						variationControl.onChange( onVariationChange );
-						if ( variations.length <= 1 ) {
-							variationControl.disable();
-						}
+						const sequence = sequences[ 0 ];
+						onSequenceChange( sequence.id );
 
 					}
 
 					if ( m2SequenceManager.hasGlobalSequences() ) {
 
-						m2SequenceManager.playGlobalSequences();
-			
 						animationFolder.add( params, 'playGlobalSequences' ).onChange( onPlayGlobalSequencesChange );
+
+						m2SequenceManager.playGlobalSequences();
 			
 					}
 
@@ -223,36 +213,32 @@
 					params.playGlobalSequences = true;
 
 					animationFolder.destroy();
-					variationControl = undefined;
 
 				}
 
 			}
 
-			function onSequenceChange( sequence ) {
+			function onSequenceChange( id ) {
 
 				m2SequenceManager.stopSequence();
+				m2SequenceManager.playSequence( id );
 
+				//
 
-				const variations = m2SequenceManager.listVariations( sequence );
+				params.variation = 0;
 
-				params.variation = variations[ 0 ];
-				variationControl.options( variations );
+				const variations = m2SequenceManager.listVariations( id );
+				variationCtrl.options( variations );
 
-				if ( variations.length > 1 ) {
-					variationControl.enable();
-				} else {
-					variationControl.disable();
-				}
-
-
-				m2SequenceManager.playSequence( sequence, params.variation );
+				( variations.length > 1 ) ? variationCtrl.enable() : variationCtrl.disable();
 
 			}
 
-			function onVariationChange( variation ) {
+			function onVariationChange( variationIndex ) {
+
 				m2SequenceManager.stopSequence();
-				m2SequenceManager.playSequence( params.sequence, variation );
+				m2SequenceManager.playSequence( m2SequenceManager.currentSequenceId, variationIndex );
+
 			}
 
 			function onPlayGlobalSequencesChange( value ) {
