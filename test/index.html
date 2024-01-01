@@ -17,7 +17,8 @@
 			{
 				"imports": {
 					"three": "https://unpkg.com/three@0.160/build/three.module.js",
-					"three/addons/": "https://unpkg.com/three@0.160/examples/jsm/"
+					"three/addons/": "https://unpkg.com/three@0.160/examples/jsm/",
+					"lil-gui": "https://unpkg.com/lil-gui@0.19.1/dist/lil-gui.esm.js"
 				}
 			}
 		</script>
@@ -27,13 +28,14 @@
 			import * as THREE from 'three';
 
 			import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-			import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
+			import { GUI } from 'lil-gui';
 
 			import { M2Loader } from '../M2Loader.js';
 
 			const params = {
 				asset: 'cat/druidcat2.m2',
-				sequences: 0,
+				sequence: 0,
+				variation: 0,
 				playGlobalSequences: true
 			};
 
@@ -51,7 +53,7 @@
 
 			let camera, scene, renderer, controls, loader, clock;
 			
-			let gui, animationFolder;
+			let gui, animationFolder, variationCtrl;
 
 			let m2Scene, m2SequenceManager;
 			
@@ -115,20 +117,17 @@
 
 					// animations
 
+					animationFolder = gui.addFolder( 'Animations' );
+
 					m2SequenceManager = m2.userData.sequenceManager;
 
-					// the list() methods provide arrays with all available sequences (animations)
+					// the list() method provide arrays with all available sequences (animations)
 
 					const sequences = m2SequenceManager.listSequences();
 
-					animationFolder = gui.addFolder( 'Animations' );
-
 					if ( sequences.length > 0 ) {
 
-						const sequence = sequences[ 0 ]; // pick first sequence
-						m2SequenceManager.playSequence( sequence.id );
-
-						// make all sequences selectable via the UI
+						// make all sequences and variations selectable via the UI
 
 						const uiSequences = {};
 
@@ -139,15 +138,21 @@
 			
 						}
 
-						animationFolder.add( params, 'sequences', uiSequences ).onChange( onSequenceChange );
+						animationFolder.add( params, 'sequence', uiSequences ).onChange( onSequenceChange );
+						variationCtrl = animationFolder.add( params, 'variation', [] ).onChange( onVariationChange );
+
+						// play first sequence
+
+						const sequence = sequences[ 0 ];
+						onSequenceChange( sequence.id );
 
 					}
 
 					if ( m2SequenceManager.hasGlobalSequences() ) {
 
-						m2SequenceManager.playGlobalSequences();
-			
 						animationFolder.add( params, 'playGlobalSequences' ).onChange( onPlayGlobalSequencesChange );
+
+						m2SequenceManager.playGlobalSequences();
 			
 					}
 
@@ -203,7 +208,8 @@
 					m2SequenceManager.stopSequence();
 					m2SequenceManager.stopGlobalSequences();
 
-					params.sequences = 0;
+					params.sequence = 0;
+					params.variation = 0;
 					params.playGlobalSequences = true;
 
 					animationFolder.destroy();
@@ -216,6 +222,22 @@
 
 				m2SequenceManager.stopSequence();
 				m2SequenceManager.playSequence( id );
+
+				//
+
+				params.variation = 0;
+
+				const variations = m2SequenceManager.listVariations( id );
+				variationCtrl.options( variations );
+
+				( variations.length > 1 ) ? variationCtrl.enable() : variationCtrl.disable();
+
+			}
+
+			function onVariationChange( variationIndex ) {
+
+				m2SequenceManager.stopSequence();
+				m2SequenceManager.playSequence( m2SequenceManager.currentSequenceId, variationIndex );
 
 			}
 

@@ -2853,12 +2853,12 @@ class SequenceManager {
 		this.sequences = sequences;
 		this.globalSequences = globalSequences;
 
+		this.currentSequenceId = - 1;
+
 		this._sequenceMap = new Map();
 		this._globalSequenceMap = new Map();
 		this._mixers = new Map();
 		this._globalMixers = new Map();
-
-		this._currentSequence = - 1;
 
 		for ( let i = 0; i < sequences.length; i ++ ) {
 
@@ -2880,7 +2880,7 @@ class SequenceManager {
 		const sequence = this.sequences[ i ];
 
 		const animations = this._sequenceMap.get( sequence.id );
-		animations.push( { clip, root, variationIndex: sequence.variationIndex } );
+		animations.push( { clip, root, flags: sequence.flags, variationIndex: sequence.variationIndex } );
 
 		if ( this._mixers.has( root ) === false ) {
 
@@ -2911,23 +2911,33 @@ class SequenceManager {
 
 			if ( animation.variationIndex === variationIndex ) {
 
-				const mixer = this._mixers.get( animation.root );
-				const action = mixer.clipAction( animation.clip );
-				action.play();
+				if ( animation.flags & M2_SEQUENCE_EMBEDDED_DATA ) {
+
+					const mixer = this._mixers.get( animation.root );
+					const action = mixer.clipAction( animation.clip );
+					action.play();
+
+				} else {
+
+					// TODO: Add support for sequences with external animation data (.anim files)
+
+					console.warn( 'THREE.M2Loader: Sequences with external animation data not yet supported.' );
+
+				}
 
 			}
 
 		}
 
-		this._currentSequence = id;
+		this.currentSequenceId = id;
 
 	}
 
 	stopSequence() {
 
-		if ( this._currentSequence === - 1 ) return;
+		if ( this.currentSequenceId === - 1 ) return;
 
-		const sequence = this._sequenceMap.get( this._currentSequence );
+		const sequence = this._sequenceMap.get( this.currentSequenceId );
 
 		for ( const animation of sequence ) {
 
@@ -2973,38 +2983,46 @@ class SequenceManager {
 
 		const list = [];
 
-		for ( let i = 0; i < this.sequences.length; i ++ ) {
+		for ( const id of this._sequenceMap.keys() ) {
 
-			const sequence = this.sequences[ i ];
+			const name = M2_ANIMATION_LIST[ id ];
 
-			// TODO: Add support for sequences with external animation data (.anim files)
+			if ( name === undefined ) {
 
-			if ( sequence.flags & M2_SEQUENCE_EMBEDDED_DATA ) {
-
-				const id = sequence.id;
-
-				const name = M2_ANIMATION_LIST[ id ];
-
-				if ( name === undefined ) {
-
-					console.warn( 'THREE.M2Loader: Unknown animation ID:', id );
-					name = '';
-
-				}
-
-				list.push( {
-					id: id,
-					name: name
-
-				} );
+				console.warn( 'THREE.M2Loader: Unknown animation ID:', id );
+				name = '';
 
 			}
 
+			list.push( {
+				id: id,
+				name: name
+
+			} );
+
 		}
 
-		list.sort( sortId );
+		list.sort( compareId );
 
 		return list;
+
+	}
+
+	listVariations( id ) {
+
+		const variationsSet = new Set();
+
+		const animations = this._sequenceMap.get( id );
+
+		for ( const animation of animations ) {
+
+			variationsSet.add( animation.variationIndex );
+
+		}
+
+		const variations = Array.from( variationsSet ).sort();
+
+		return variations;
 
 	}
 
@@ -3032,9 +3050,9 @@ class SequenceManager {
 
 }
 
-function sortId( a, b ) {
+function compareId( a, b ) {
 
-	return a.id > b.id;
+	return a.id - b.id;
 
 
 }
