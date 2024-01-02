@@ -3020,7 +3020,7 @@ class SequenceManager {
 
 		}
 
-		const variations = Array.from( variationsSet ).sort();
+		const variations = Array.from( variationsSet ).sort( compareNumber );
 
 		return variations;
 
@@ -3054,6 +3054,12 @@ function compareId( a, b ) {
 
 	return a.id - b.id;
 
+
+}
+
+function compareNumber( a, b ) {
+
+	return a - b;
 
 }
 
