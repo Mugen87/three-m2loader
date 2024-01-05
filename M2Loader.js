@@ -190,11 +190,11 @@ class M2Loader extends Loader {
 		// build scene
 
 		const geometries = this._buildGeometries( skinData, vertices );
-		const skeletonData = this._buildSkeleton( boneDefinitions, globalSequences, sequenceManager );
+		const skeletonData = this._buildSkeleton( boneDefinitions );
 		const materials = this._buildMaterials( materialDefinitions );
-		const textureTransforms = this._buildTextureTransforms( textureTransformDefinitions, globalSequences );
-		const textureWeights = this._buildTextureWeights( textureWeightDefinitions, globalSequences );
-		const colors = this._buildColors( colorDefinitions, globalSequences );
+		const textureTransforms = this._buildTextureTransforms( textureTransformDefinitions );
+		const textureWeights = this._buildTextureWeights( textureWeightDefinitions );
+		const colors = this._buildColors( colorDefinitions );
 		const group = this._buildObjects( name, geometries, skeletonData, materials, colors, textures, textureTransforms, textureWeights, skinData, lookupTables, sequenceManager );
 
 		group.userData.sequenceManager = sequenceManager;
@@ -439,7 +439,7 @@ class M2Loader extends Loader {
 
 	}
 
-	_buildColors( colorDefinitions, globalSequences ) {
+	_buildColors( colorDefinitions ) {
 
 		const colors = [];
 
@@ -474,14 +474,6 @@ class M2Loader extends Loader {
 
 					for ( let j = 0; j < color.timestamps.length; j ++ ) {
 
-						let maxTimeStamp = null;
-
-						if ( color.globalSequence >= 0 ) {
-
-							maxTimeStamp = globalSequences[ color.globalSequence ] / 1000;
-
-						}
-
 						const ti = color.timestamps[ j ];
 						const vi = color.values[ j ];
 
@@ -505,12 +497,6 @@ class M2Loader extends Loader {
 
 						}
 
-						if ( maxTimeStamp !== null ) {
-
-							times[ times.length - 1 ] = maxTimeStamp;
-
-						}
-
 						// values
 
 						for ( let k = 0; k < vi.length; k += 3 ) {
@@ -529,7 +515,7 @@ class M2Loader extends Loader {
 
 						// keyframe track
 
-						if ( maxTimeStamp !== null ) {
+						if ( color.globalSequence >= 0 ) {
 
 							if ( data.globalTracks[ color.globalSequence ] === undefined ) data.globalTracks[ color.globalSequence ] = [];
 
@@ -557,14 +543,6 @@ class M2Loader extends Loader {
 
 					for ( let j = 0; j < alpha.timestamps.length; j ++ ) {
 
-						let maxTimeStamp = null;
-
-						if ( alpha.globalSequence >= 0 ) {
-
-							maxTimeStamp = globalSequences[ alpha.globalSequence ] / 1000;
-
-						}
-
 						const ti = alpha.timestamps[ j ];
 						const vi = alpha.values[ j ];
 
@@ -588,12 +566,6 @@ class M2Loader extends Loader {
 
 						}
 
-						if ( maxTimeStamp !== null ) {
-
-							times[ times.length - 1 ] = maxTimeStamp;
-
-						}
-
 						// values
 
 						for ( let k = 0; k < vi.length; k ++ ) {
@@ -610,7 +582,7 @@ class M2Loader extends Loader {
 
 						// keyframe track
 
-						if ( maxTimeStamp !== null ) {
+						if ( alpha.globalSequence >= 0 ) {
 
 							if ( data.globalTracks[ alpha.globalSequence ] === undefined ) data.globalTracks[ alpha.globalSequence ] = [];
 
@@ -760,7 +732,7 @@ class M2Loader extends Loader {
 
 	}
 
-	_buildSkeleton( boneDefinitions, globalSequences ) {
+	_buildSkeleton( boneDefinitions ) {
 
 		const data = {
 			tracks: [],
@@ -797,14 +769,6 @@ class M2Loader extends Loader {
 
 			for ( let j = 0; j < translationData.timestamps.length; j ++ ) {
 
-				let maxTimeStamp = null;
-
-				if ( translationData.globalSequence >= 0 ) {
-
-					maxTimeStamp = globalSequences[ translationData.globalSequence ] / 1000;
-
-				}
-
 				const ti = translationData.timestamps[ j ];
 				const vi = translationData.values[ j ];
 
@@ -820,12 +784,6 @@ class M2Loader extends Loader {
 				for ( let k = 0; k < ti.length; k ++ ) {
 
 					times.push( ti[ k ] / 1000 );
-
-				}
-
-				if ( maxTimeStamp !== null ) {
-
-					times[ times.length - 1 ] = maxTimeStamp;
 
 				}
 
@@ -845,7 +803,7 @@ class M2Loader extends Loader {
 
 				// keyframe track
 
-				if ( maxTimeStamp !== null ) {
+				if ( translationData.globalSequence >= 0 ) {
 
 					if ( data.globalTracks[ translationData.globalSequence ] === undefined ) data.globalTracks[ translationData.globalSequence ] = [];
 
@@ -864,14 +822,6 @@ class M2Loader extends Loader {
 
 			for ( let j = 0; j < rotationData.timestamps.length; j ++ ) {
 
-				let maxTimeStamp = null;
-
-				if ( rotationData.globalSequence >= 0 ) {
-
-					maxTimeStamp = globalSequences[ rotationData.globalSequence ] / 1000;
-
-				}
-
 				const ti = rotationData.timestamps[ j ];
 				const vi = rotationData.values[ j ];
 
@@ -887,12 +837,6 @@ class M2Loader extends Loader {
 				for ( let k = 0; k < ti.length; k ++ ) {
 
 					times.push( ti[ k ] / 1000 );
-
-				}
-
-				if ( maxTimeStamp !== null ) {
-
-					times[ times.length - 1 ] = maxTimeStamp;
 
 				}
 
@@ -913,7 +857,7 @@ class M2Loader extends Loader {
 
 				// keyframe track
 
-				if ( maxTimeStamp !== null ) {
+				if ( rotationData.globalSequence >= 0 ) {
 
 					if ( data.globalTracks[ rotationData.globalSequence ] === undefined ) data.globalTracks[ rotationData.globalSequence ] = [];
 
@@ -931,14 +875,6 @@ class M2Loader extends Loader {
 			}
 
 			for ( let j = 0; j < scaleData.timestamps.length; j ++ ) {
-
-				let maxTimeStamp = null;
-
-				if ( scaleData.globalSequence >= 0 ) {
-
-					maxTimeStamp = globalSequences[ scaleData.globalSequence ] / 1000;
-
-				}
 
 				const ti = scaleData.timestamps[ j ];
 				const vi = scaleData.values[ j ];
@@ -958,12 +894,6 @@ class M2Loader extends Loader {
 
 				}
 
-				if ( maxTimeStamp !== null ) {
-
-					times[ times.length - 1 ] = maxTimeStamp;
-
-				}
-
 				// values
 
 				for ( let k = 0; k < vi.length; k += 3 ) {
@@ -980,7 +910,7 @@ class M2Loader extends Loader {
 
 				// keyframe track
 
-				if ( maxTimeStamp !== null ) {
+				if ( scaleData.globalSequence >= 0 ) {
 
 					if ( data.globalTracks[ scaleData.globalSequence ] === undefined ) data.globalTracks[ scaleData.globalSequence ] = [];
 
@@ -1005,7 +935,7 @@ class M2Loader extends Loader {
 
 	}
 
-	_buildTextureTransforms( textureTransformDefinitions, globalSequences ) {
+	_buildTextureTransforms( textureTransformDefinitions ) {
 
 		const textureTransforms = [];
 
@@ -1040,14 +970,6 @@ class M2Loader extends Loader {
 
 				for ( let j = 0; j < translation.timestamps.length; j ++ ) {
 
-					let maxTimeStamp = null;
-
-					if ( translation.globalSequence >= 0 ) {
-
-						maxTimeStamp = globalSequences[ translation.globalSequence ] / 1000;
-
-					}
-
 					const ti = translation.timestamps[ j ];
 					const vi = translation.values[ j ];
 
@@ -1071,12 +993,6 @@ class M2Loader extends Loader {
 
 					}
 
-					if ( maxTimeStamp !== null ) {
-
-						times[ times.length - 1 ] = maxTimeStamp;
-
-					}
-
 					// values
 
 					for ( let k = 0; k < vi.length; k += 3 ) {
@@ -1094,7 +1010,7 @@ class M2Loader extends Loader {
 
 					// keyframe track
 
-					if ( maxTimeStamp !== null ) {
+					if ( translation.globalSequence >= 0 ) {
 
 						if ( data.globalTracks[ translation.globalSequence ] === undefined ) data.globalTracks[ translation.globalSequence ] = [];
 
@@ -1127,14 +1043,6 @@ class M2Loader extends Loader {
 
 				for ( let j = 0; j < rotation.timestamps.length; j ++ ) {
 
-					let maxTimeStamp = null;
-
-					if ( rotation.globalSequence >= 0 ) {
-
-						maxTimeStamp = globalSequences[ rotation.globalSequence ];
-
-					}
-
 					const ti = rotation.timestamps[ j ];
 					const vi = rotation.values[ j ];
 
@@ -1158,12 +1066,6 @@ class M2Loader extends Loader {
 
 					}
 
-					if ( maxTimeStamp !== null ) {
-
-						times[ times.length - 1 ] = maxTimeStamp;
-
-					}
-
 					// values
 
 					let r = 0;
@@ -1184,7 +1086,7 @@ class M2Loader extends Loader {
 
 					// keyframe track
 
-					if ( maxTimeStamp !== null ) {
+					if ( rotation.globalSequence >= 0 ) {
 
 						if ( data.globalTracks[ rotation.globalSequence ] === undefined ) data.globalTracks[ rotation.globalSequence ] = [];
 
@@ -1211,7 +1113,7 @@ class M2Loader extends Loader {
 
 	}
 
-	_buildTextureWeights( textureWeightDefinitions, globalSequences ) {
+	_buildTextureWeights( textureWeightDefinitions ) {
 
 		const textureWeights = [];
 
@@ -1237,14 +1139,6 @@ class M2Loader extends Loader {
 
 				for ( let j = 0; j < textureWeightDefinition.timestamps.length; j ++ ) {
 
-					let maxTimeStamp = null;
-
-					if ( textureWeightDefinition.globalSequence >= 0 ) {
-
-						maxTimeStamp = globalSequences[ textureWeightDefinition.globalSequence ] / 1000;
-
-					}
-
 					const ti = textureWeightDefinition.timestamps[ j ];
 					const vi = textureWeightDefinition.values[ j ];
 
@@ -1268,12 +1162,6 @@ class M2Loader extends Loader {
 
 					}
 
-					if ( maxTimeStamp !== null ) {
-
-						times[ times.length - 1 ] = maxTimeStamp;
-
-					}
-
 					// values
 
 					for ( let k = 0; k < vi.length; k ++ ) {
@@ -1288,7 +1176,7 @@ class M2Loader extends Loader {
 
 					// keyframe track
 
-					if ( maxTimeStamp !== null ) {
+					if ( textureWeightDefinition.globalSequence >= 0 ) {
 
 						if ( data.globalTracks[ textureWeightDefinition.globalSequence ] === undefined ) data.globalTracks[ textureWeightDefinition.globalSequence ] = [];
 
