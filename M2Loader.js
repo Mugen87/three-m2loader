@@ -109,6 +109,7 @@ class M2Loader extends Loader {
 	async parse( buffer, url ) {
 
 		const parser = new BinaryParser( buffer );
+		const resourcePath = LoaderUtils.extractUrlBase( url );
 
 		let chunks = new Map();
 		let chunkedFile = false;
@@ -154,7 +155,7 @@ class M2Loader extends Loader {
 		const sequences = this._readSequences( parser, header );
 		const globalSequences = this._readGlobalSequences( parser, header );
 
-		const sequenceManager = new SequenceManager( sequences, globalSequences );
+		const sequenceManager = new SequenceManager( sequences, globalSequences, name, resourcePath );
 
 		const colorDefinitions = this._readColorDefinitions( parser, header, sequenceManager );
 		const materialDefinitions = this._readMaterialDefinitions( parser, header );
@@ -173,8 +174,6 @@ class M2Loader extends Loader {
 
 		// loaders
 
-		const resourcePath = LoaderUtils.extractUrlBase( url );
-
 		const textureLoader = new BLPLoader( this.manager );
 		textureLoader.setPath( resourcePath );
 		textureLoader.setHeader( header );
@@ -191,7 +190,7 @@ class M2Loader extends Loader {
 		// build scene
 
 		const geometries = this._buildGeometries( skinData, vertices );
-		const skeletonData = this._buildSkeleton( boneDefinitions );
+		const skeletonData = this._buildSkeleton( boneDefinitions, sequenceManager );
 		const materials = this._buildMaterials( materialDefinitions );
 		const textureTransforms = this._buildTextureTransforms( textureTransformDefinitions );
 		const textureWeights = this._buildTextureWeights( textureWeightDefinitions );
@@ -475,38 +474,15 @@ class M2Loader extends Loader {
 
 					for ( let j = 0; j < color.timestamps.length; j ++ ) {
 
-						const ti = color.timestamps[ j ];
-						const vi = color.values[ j ];
-
-						const times = [];
-						const values = [];
+						const times = color.timestamps[ j ];
+						const values = color.values[ j ];
 
 						// ignore empty tracks
 
-						if ( ti.length === 0 ) {
+						if ( times.length === 0 ) {
 
 							data.tracks[ j ] = [];
 							continue;
-
-						}
-
-						// times
-
-						for ( let k = 0; k < ti.length; k ++ ) {
-
-							times.push( ti[ k ] / 1000 );
-
-						}
-
-						// values
-
-						for ( let k = 0; k < vi.length; k += 3 ) {
-
-							// r,g,b
-
-							values.push( vi[ k ] );
-							values.push( vi[ k + 1 ] );
-							values.push( vi[ k + 2 ] );
 
 						}
 
@@ -544,36 +520,15 @@ class M2Loader extends Loader {
 
 					for ( let j = 0; j < alpha.timestamps.length; j ++ ) {
 
-						const ti = alpha.timestamps[ j ];
-						const vi = alpha.values[ j ];
-
-						const times = [];
-						const values = [];
+						const times = alpha.timestamps[ j ];
+						const values = alpha.values[ j ];
 
 						// ignore empty tracks
 
-						if ( ti.length === 0 ) {
+						if ( times.length === 0 ) {
 
 							data.tracks[ j ] = [];
 							continue;
-
-						}
-
-						// times
-
-						for ( let k = 0; k < ti.length; k ++ ) {
-
-							times.push( ti[ k ] / 1000 );
-
-						}
-
-						// values
-
-						for ( let k = 0; k < vi.length; k ++ ) {
-
-							// alpha
-
-							values.push( vi[ k ] );
 
 						}
 
@@ -733,7 +688,7 @@ class M2Loader extends Loader {
 
 	}
 
-	_buildSkeleton( boneDefinitions ) {
+	_buildSkeleton( boneDefinitions, sequenceManager ) {
 
 		const data = {
 			tracks: [],
@@ -770,33 +725,12 @@ class M2Loader extends Loader {
 
 			for ( let j = 0; j < translationData.timestamps.length; j ++ ) {
 
-				const ti = translationData.timestamps[ j ];
-				const vi = translationData.values[ j ];
-
-				const times = [];
-				const values = [];
+				const times = translationData.timestamps[ j ];
+				const values = translationData.values[ j ];
 
 				// ignore empty tracks
 
-				if ( ti.length === 0 ) continue;
-
-				// times
-
-				for ( let k = 0; k < ti.length; k ++ ) {
-
-					times.push( ti[ k ] / 1000 );
-
-				}
-
-				// values
-
-				for ( let k = 0; k < vi.length; k += 3 ) {
-
-					values.push( vi[ k ] );
-					values.push( vi[ k + 1 ] );
-					values.push( vi[ k + 2 ] );
-
-				}
+				if ( times.length === 0 ) continue;
 
 				// interpolation type
 
@@ -804,18 +738,37 @@ class M2Loader extends Loader {
 
 				// keyframe track
 
+				let track;
+
 				if ( translationData.globalSequence >= 0 ) {
 
 					if ( data.globalTracks[ translationData.globalSequence ] === undefined ) data.globalTracks[ translationData.globalSequence ] = [];
 
-					data.globalTracks[ translationData.globalSequence ].push( new VectorKeyframeTrack( bone.uuid + '.position', times, values, interpolation ) );
+					track = new VectorKeyframeTrack( bone.uuid + '.position', times, values, interpolation );
+
+					data.globalTracks[ translationData.globalSequence ].push( track );
 
 
 				} else {
 
 					if ( data.tracks[ j ] === undefined ) data.tracks[ j ] = [];
 
-					data.tracks[ j ].push( new VectorKeyframeTrack( bone.uuid + '.position', times, values, interpolation ) );
+					track = new VectorKeyframeTrack( bone.uuid + '.position', times, values, interpolation );
+
+					data.tracks[ j ].push( track );
+
+				}
+
+				// external data
+
+				const externalTimestamps = translationData.externalTimestamps[ j ];
+				const externalValues = translationData.externalValues[ j ];
+
+				if ( externalTimestamps !== undefined ) {
+
+					const sequence = sequenceManager.sequences[ j ];
+
+					sequenceManager.addExternalTrack( sequence.id, sequence.variationIndex, externalTimestamps, externalValues, track );
 
 				}
 
@@ -823,34 +776,12 @@ class M2Loader extends Loader {
 
 			for ( let j = 0; j < rotationData.timestamps.length; j ++ ) {
 
-				const ti = rotationData.timestamps[ j ];
-				const vi = rotationData.values[ j ];
-
-				const times = [];
-				const values = [];
+				const times = rotationData.timestamps[ j ];
+				const values = rotationData.values[ j ];
 
 				// ignore empty tracks
 
-				if ( ti.length === 0 ) continue;
-
-				// times
-
-				for ( let k = 0; k < ti.length; k ++ ) {
-
-					times.push( ti[ k ] / 1000 );
-
-				}
-
-				// values
-
-				for ( let k = 0; k < vi.length; k += 4 ) {
-
-					values.push( vi[ k ] );
-					values.push( vi[ k + 1 ] );
-					values.push( vi[ k + 2 ] );
-					values.push( vi[ k + 3 ] );
-
-				}
+				if ( times.length === 0 ) continue;
 
 				// interpolation type
 
@@ -858,18 +789,37 @@ class M2Loader extends Loader {
 
 				// keyframe track
 
+				let track;
+
 				if ( rotationData.globalSequence >= 0 ) {
 
 					if ( data.globalTracks[ rotationData.globalSequence ] === undefined ) data.globalTracks[ rotationData.globalSequence ] = [];
 
-					data.globalTracks[ rotationData.globalSequence ].push( new QuaternionKeyframeTrack( bone.uuid + '.quaternion', times, values, interpolation ) );
+					track = new QuaternionKeyframeTrack( bone.uuid + '.quaternion', times, values, interpolation );
+
+					data.globalTracks[ rotationData.globalSequence ].push( track );
 
 
 				} else {
 
 					if ( data.tracks[ j ] === undefined ) data.tracks[ j ] = [];
 
-					data.tracks[ j ].push( new QuaternionKeyframeTrack( bone.uuid + '.quaternion', times, values, interpolation ) );
+					track = new QuaternionKeyframeTrack( bone.uuid + '.quaternion', times, values, interpolation );
+
+					data.tracks[ j ].push( track );
+
+				}
+
+				// external data
+
+				const externalTimestamps = rotationData.externalTimestamps[ j ];
+				const externalValues = rotationData.externalValues[ j ];
+
+				if ( externalTimestamps !== undefined ) {
+
+					const sequence = sequenceManager.sequences[ j ];
+
+					sequenceManager.addExternalTrack( sequence.id, sequence.variationIndex, externalTimestamps, externalValues, track );
 
 				}
 
@@ -877,33 +827,12 @@ class M2Loader extends Loader {
 
 			for ( let j = 0; j < scaleData.timestamps.length; j ++ ) {
 
-				const ti = scaleData.timestamps[ j ];
-				const vi = scaleData.values[ j ];
-
-				const times = [];
-				const values = [];
+				const times = scaleData.timestamps[ j ];
+				const values = scaleData.values[ j ];
 
 				// ignore empty tracks
 
-				if ( ti.length === 0 ) continue;
-
-				// times
-
-				for ( let k = 0; k < ti.length; k ++ ) {
-
-					times.push( ti[ k ] / 1000 );
-
-				}
-
-				// values
-
-				for ( let k = 0; k < vi.length; k += 3 ) {
-
-					values.push( vi[ k ] );
-					values.push( vi[ k + 1 ] );
-					values.push( vi[ k + 2 ] );
-
-				}
+				if ( times.length === 0 ) continue;
 
 				// interpolation type
 
@@ -911,20 +840,40 @@ class M2Loader extends Loader {
 
 				// keyframe track
 
+				let track;
+
 				if ( scaleData.globalSequence >= 0 ) {
 
 					if ( data.globalTracks[ scaleData.globalSequence ] === undefined ) data.globalTracks[ scaleData.globalSequence ] = [];
 
-					data.globalTracks[ scaleData.globalSequence ].push( new VectorKeyframeTrack( bone.uuid + '.scale', times, values, interpolation ) );
+					track = new VectorKeyframeTrack( bone.uuid + '.scale', times, values, interpolation );
+
+					data.globalTracks[ scaleData.globalSequence ].push( track );
 
 
 				} else {
 
 					if ( data.tracks[ j ] === undefined ) data.tracks[ j ] = [];
 
-					data.tracks[ j ].push( new VectorKeyframeTrack( bone.uuid + '.scale', times, values, interpolation ) );
+					track = new VectorKeyframeTrack( bone.uuid + '.scale', times, values, interpolation );
+
+					data.tracks[ j ].push( track );
 
 				}
+
+				// external data
+
+				const externalTimestamps = scaleData.externalTimestamps[ j ];
+				const externalValues = scaleData.externalValues[ j ];
+
+				if ( externalTimestamps !== undefined ) {
+
+					const sequence = sequenceManager.sequences[ j ];
+
+					sequenceManager.addExternalTrack( sequence.id, sequence.variationIndex, externalTimestamps, externalValues, track );
+
+				}
+
 
 			}
 
@@ -971,26 +920,17 @@ class M2Loader extends Loader {
 
 				for ( let j = 0; j < translation.timestamps.length; j ++ ) {
 
-					const ti = translation.timestamps[ j ];
+					const times = translation.timestamps[ j ];
 					const vi = translation.values[ j ];
 
-					const times = [];
 					const values = [];
 
 					// ignore empty tracks
 
-					if ( ti.length === 0 ) {
+					if ( times.length === 0 ) {
 
 						data.tracks[ j ] = [];
 						continue;
-
-					}
-
-					// times
-
-					for ( let k = 0; k < ti.length; k ++ ) {
-
-						times.push( ti[ k ] / 1000 );
 
 					}
 
@@ -1044,26 +984,17 @@ class M2Loader extends Loader {
 
 				for ( let j = 0; j < rotation.timestamps.length; j ++ ) {
 
-					const ti = rotation.timestamps[ j ];
+					const times = rotation.timestamps[ j ];
 					const vi = rotation.values[ j ];
 
-					const times = [];
 					const values = [];
 
 					// ignore empty tracks
 
-					if ( ti.length === 0 ) {
+					if ( times.length === 0 ) {
 
 						data.tracks[ j ] = [];
 						continue;
-
-					}
-
-					// times
-
-					for ( let k = 0; k < ti.length; k ++ ) {
-
-						times.push( ti[ k ] / 1000 );
 
 					}
 
@@ -1140,34 +1071,15 @@ class M2Loader extends Loader {
 
 				for ( let j = 0; j < textureWeightDefinition.timestamps.length; j ++ ) {
 
-					const ti = textureWeightDefinition.timestamps[ j ];
-					const vi = textureWeightDefinition.values[ j ];
-
-					const times = [];
-					const values = [];
+					const times = textureWeightDefinition.timestamps[ j ];
+					const values = textureWeightDefinition.values[ j ];
 
 					// ignore empty tracks
 
-					if ( ti.length === 0 ) {
+					if ( times.length === 0 ) {
 
 						data.tracks[ j ] = [];
 						continue;
-
-					}
-
-					// times
-
-					for ( let k = 0; k < ti.length; k ++ ) {
-
-						times.push( ti[ k ] / 1000 );
-
-					}
-
-					// values
-
-					for ( let k = 0; k < vi.length; k ++ ) {
-
-						values.push( vi[ k ] );
 
 					}
 
@@ -1890,22 +1802,16 @@ class M2Loader extends Loader {
 
 				if ( sequenceManager.isEmbeddedSequence( i ) ) {
 
-					parser.saveState();
-					parser.moveTo( offset );
-
-					for ( let j = 0; j < length; j ++ ) {
-
-						values[ j ] = parser.readUInt32();
-
-					}
-
-					parser.restoreState();
+					extractTimestamps( parser, length, offset, values );
 
 				} else {
 
 					values = values.fill( 0 );
 
-					// TODO: Save length and offset for later processing of external animations
+					track.externalTimestamps[ i ] = {
+						length,
+						offset,
+					};
 
 				}
 
@@ -1933,82 +1839,18 @@ class M2Loader extends Loader {
 
 				if ( sequenceManager.isEmbeddedSequence( i ) ) {
 
-					parser.saveState();
-					parser.moveTo( offset );
-
-					for ( let j = 0; j < length; j ++ ) {
-
-						const stride = j * itemSize;
-
-						switch ( type ) {
-
-							case 'fixed16':
-
-								values[ stride ] = parser.readInt16() / 0x7fff;
-
-								break;
-
-							case 'vec2':
-
-								values[ stride + 0 ] = parser.readFloat32();
-								values[ stride + 1 ] = parser.readFloat32();
-
-								break;
-
-							case 'vec3':
-
-								values[ stride + 0 ] = parser.readFloat32();
-								values[ stride + 1 ] = parser.readFloat32();
-								values[ stride + 2 ] = parser.readFloat32();
-
-								break;
-
-							case 'quatCompressed':
-
-								// conversion from short to float, see https://wowdev.wiki/Quaternion_values_and_2.x
-
-								let x = parser.readInt16();
-								let y = parser.readInt16();
-								let z = parser.readInt16();
-								let w = parser.readInt16();
-
-								x = ( x < 0 ? x + 32768 : x - 32767 ) / 32767;
-								y = ( y < 0 ? y + 32768 : y - 32767 ) / 32767;
-								z = ( z < 0 ? z + 32768 : z - 32767 ) / 32767;
-								w = ( w < 0 ? w + 32768 : w - 32767 ) / 32767;
-
-								values[ stride + 0 ] = x;
-								values[ stride + 1 ] = y;
-								values[ stride + 2 ] = z;
-								values[ stride + 3 ] = w;
-
-								break;
-
-							case 'quat':
-
-								values[ stride + 0 ] = parser.readFloat32();
-								values[ stride + 1 ] = parser.readFloat32();
-								values[ stride + 2 ] = parser.readFloat32();
-								values[ stride + 3 ] = parser.readFloat32();
-
-								break;
-
-							default:
-
-								console.error( 'THREE.M2Loader: Unsupported item type:', type );
-								break;
-
-						}
-
-					}
-
-					parser.restoreState();
+					extractValues( parser, length, offset, type, itemSize, values );
 
 				} else {
 
 					values = values.fill( 0 );
 
-					// TODO: Save length and offset for later processing of external animations
+					track.externalValues[ i ] = {
+						length,
+						offset,
+						type,
+						itemSize
+					};
 
 				}
 
@@ -2084,6 +1926,97 @@ class M2Loader extends Loader {
 }
 
 //
+
+function extractTimestamps( parser, length, offset, values ) {
+
+	parser.saveState();
+	parser.moveTo( offset );
+
+	for ( let j = 0; j < length; j ++ ) {
+
+		values[ j ] = parser.readUInt32() / 1000;
+
+	}
+
+	parser.restoreState();
+
+}
+
+function extractValues( parser, length, offset, type, itemSize, values ) {
+
+	parser.saveState();
+	parser.moveTo( offset );
+
+	for ( let j = 0; j < length; j ++ ) {
+
+		const stride = j * itemSize;
+
+		switch ( type ) {
+
+			case 'fixed16':
+
+				values[ stride ] = parser.readInt16() / 0x7fff;
+
+				break;
+
+			case 'vec2':
+
+				values[ stride + 0 ] = parser.readFloat32();
+				values[ stride + 1 ] = parser.readFloat32();
+
+				break;
+
+			case 'vec3':
+
+				values[ stride + 0 ] = parser.readFloat32();
+				values[ stride + 1 ] = parser.readFloat32();
+				values[ stride + 2 ] = parser.readFloat32();
+
+				break;
+
+			case 'quatCompressed':
+
+				// conversion from short to float, see https://wowdev.wiki/Quaternion_values_and_2.x
+
+				let x = parser.readInt16();
+				let y = parser.readInt16();
+				let z = parser.readInt16();
+				let w = parser.readInt16();
+
+				x = ( x < 0 ? x + 32768 : x - 32767 ) / 32767;
+				y = ( y < 0 ? y + 32768 : y - 32767 ) / 32767;
+				z = ( z < 0 ? z + 32768 : z - 32767 ) / 32767;
+				w = ( w < 0 ? w + 32768 : w - 32767 ) / 32767;
+
+				values[ stride + 0 ] = x;
+				values[ stride + 1 ] = y;
+				values[ stride + 2 ] = z;
+				values[ stride + 3 ] = w;
+
+				break;
+
+			case 'quat':
+
+				values[ stride + 0 ] = parser.readFloat32();
+				values[ stride + 1 ] = parser.readFloat32();
+				values[ stride + 2 ] = parser.readFloat32();
+				values[ stride + 3 ] = parser.readFloat32();
+
+				break;
+
+			default:
+
+				console.error( 'THREE.M2Loader: Unsupported item type:', type );
+				break;
+
+		}
+
+	}
+
+	parser.restoreState();
+
+}
+
 
 function getInterpolation( type ) {
 
@@ -2797,15 +2730,19 @@ class BinaryParser {
 
 class SequenceManager {
 
-	constructor( sequences, globalSequences ) {
+	constructor( sequences, globalSequences, filename, resourcePath ) {
 
 		this.sequences = sequences;
 		this.globalSequences = globalSequences;
+		this.filename = filename;
+		this.resourcePath = resourcePath;
 
 		this._sequenceMap = new Map();
 		this._globalSequenceMap = new Map();
 		this._mixers = new Map();
 		this._globalMixers = new Map();
+		this._externalSequences = new Map();
+		this._externalSequencesInitialized = new Map();
 
 		// setup maps
 
@@ -2816,6 +2753,13 @@ class SequenceManager {
 			const key = computeSequenceKey( sequence.id, sequence.variationIndex );
 
 			this._sequenceMap.set( key, [] );
+
+			if ( ! this.isEmbeddedSequence( i ) ) {
+
+				this._externalSequencesInitialized.set( key, false );
+				this._externalSequences.set( key, [] );
+
+			}
 
 		}
 
@@ -2857,6 +2801,16 @@ class SequenceManager {
 
 	}
 
+	addExternalTrack( id, subId, externalTimestamps, externalValues, track ) {
+
+		const key = computeSequenceKey( id, subId );
+
+		const data = this._externalSequences.get( key );
+
+		data.push( { externalTimestamps, externalValues, track } );
+
+	}
+
 	isEmbeddedSequence( i ) {
 
 		const sequence = this.sequences[ i ];
@@ -2873,17 +2827,56 @@ class SequenceManager {
 
 		for ( const animation of sequence ) {
 
+			const mixer = this._mixers.get( animation.root );
+
 			if ( animation.flags & M2_SEQUENCE_EMBEDDED_DATA ) {
 
-				const mixer = this._mixers.get( animation.root );
 				const action = mixer.clipAction( animation.clip );
 				action.play();
 
 			} else {
 
-				// TODO: Add support for sequences with external animation data (.anim files)
+				if ( this._externalSequencesInitialized.get( key ) === false ) {
 
-				console.warn( 'THREE.M2Loader: Sequences with external animation data not yet supported.' );
+					const filename = this.filename;
+					const resourcePath = this.resourcePath;
+					const sequenceId = id.toString().padStart( 4, '0' );
+					const subSequenceId = variationIndex.toString().padStart( 2, '0' );
+
+					const path = resourcePath + filename + sequenceId + '-' + subSequenceId + '.anim';
+
+					fetch( path ).then( ( response ) => {
+
+						if ( response.ok === false ) {
+
+							console.warn( 'THREE.M2Loader: Unable to load animation file. HTTP error, response status:', response.status );
+							return;
+
+						}
+
+						return response.arrayBuffer();
+
+					} ).then( ( buffer ) => {
+
+						if ( buffer !== undefined ) {
+
+							this._updateKeyframes( id, variationIndex, buffer );
+							this._externalSequencesInitialized.set( key, true );
+
+							animation.clip.resetDuration();
+							const action = mixer.clipAction( animation.clip );
+							action.play();
+
+						}
+
+					} );
+
+				} else {
+
+					const action = mixer.clipAction( animation.clip );
+					action.play();
+
+				}
 
 			}
 
@@ -3011,6 +3004,35 @@ class SequenceManager {
 		for ( const mixer of this._globalMixers.values() ) {
 
 			mixer.update( delta );
+
+		}
+
+	}
+
+	_updateKeyframes( sequenceId, subSequenceId, buffer ) {
+
+		const data = this._externalSequences.get( sequenceId + '-' + subSequenceId );
+
+		const parser = new BinaryParser( buffer );
+		parser.chunkOffset += 8; // TODO: Find out the purpose of the first 8 bytes
+
+		for ( let keyframes of data ) {
+
+			// times
+
+			let length = keyframes.externalTimestamps.length;
+			let offset = keyframes.externalTimestamps.offset;
+
+			extractTimestamps( parser, length, offset, keyframes.track.times );
+
+			// values
+
+			length = keyframes.externalValues.length;
+			offset = keyframes.externalValues.offset;
+			const type = keyframes.externalValues.type;
+			const itemSize = keyframes.externalValues.itemSize;
+
+			extractValues( parser, length, offset, type, itemSize, keyframes.track.values );
 
 		}
 
@@ -3180,6 +3202,9 @@ class M2Track {
 		this.globalSequence = 0;
 		this.timestamps = [];
 		this.values = [];
+
+		this.externalTimestamps = [];
+		this.externalValues = [];
 
 	}
 
