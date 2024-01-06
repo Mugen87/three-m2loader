@@ -151,16 +151,17 @@ class M2Loader extends Loader {
 
 		const name = this._readName( parser, header );
 		const vertices = this._readVertices( parser, header );
-		const colorDefinitions = this._readColorDefinitions( parser, header );
-		const materialDefinitions = this._readMaterialDefinitions( parser, header );
-		const textureDefinitions = this._readTextureDefinitions( parser, header );
-		const textureTransformDefinitions = this._readTextureTransformDefinitions( parser, header );
-		const textureWeightDefinitions = this._readTextureWeightDefinitions( parser, header );
 		const sequences = this._readSequences( parser, header );
 		const globalSequences = this._readGlobalSequences( parser, header );
-		const boneDefinitions = this._readBoneDefinitions( parser, header );
 
 		const sequenceManager = new SequenceManager( sequences, globalSequences );
+
+		const colorDefinitions = this._readColorDefinitions( parser, header, sequenceManager );
+		const materialDefinitions = this._readMaterialDefinitions( parser, header );
+		const textureDefinitions = this._readTextureDefinitions( parser, header );
+		const textureTransformDefinitions = this._readTextureTransformDefinitions( parser, header, sequenceManager );
+		const textureWeightDefinitions = this._readTextureWeightDefinitions( parser, header, sequenceManager );
+		const boneDefinitions = this._readBoneDefinitions( parser, header, sequenceManager );
 
 		// lookup tables
 
@@ -511,7 +512,7 @@ class M2Loader extends Loader {
 
 						// interpolation type
 
-						const interpolation = this._getInterpolation( color.interpolationType );
+						const interpolation = getInterpolation( color.interpolationType );
 
 						// keyframe track
 
@@ -578,7 +579,7 @@ class M2Loader extends Loader {
 
 						// interpolation type
 
-						const interpolation = this._getInterpolation( alpha.interpolationType );
+						const interpolation = getInterpolation( alpha.interpolationType );
 
 						// keyframe track
 
@@ -799,7 +800,7 @@ class M2Loader extends Loader {
 
 				// interpolation type
 
-				const interpolation = this._getInterpolation( translationData.interpolationType );
+				const interpolation = getInterpolation( translationData.interpolationType );
 
 				// keyframe track
 
@@ -853,7 +854,7 @@ class M2Loader extends Loader {
 
 				// interpolation type
 
-				const interpolation = this._getInterpolation( rotationData.interpolationType );
+				const interpolation = getInterpolation( rotationData.interpolationType );
 
 				// keyframe track
 
@@ -906,7 +907,7 @@ class M2Loader extends Loader {
 
 				// interpolation type
 
-				const interpolation = this._getInterpolation( scaleData.interpolationType );
+				const interpolation = getInterpolation( scaleData.interpolationType );
 
 				// keyframe track
 
@@ -1006,7 +1007,7 @@ class M2Loader extends Loader {
 
 					// interpolation type
 
-					const interpolation = this._getInterpolation( translation.interpolationType );
+					const interpolation = getInterpolation( translation.interpolationType );
 
 					// keyframe track
 
@@ -1082,7 +1083,7 @@ class M2Loader extends Loader {
 
 					// interpolation type
 
-					const interpolation = this._getInterpolation( rotation.interpolationType );
+					const interpolation = getInterpolation( rotation.interpolationType );
 
 					// keyframe track
 
@@ -1172,7 +1173,7 @@ class M2Loader extends Loader {
 
 					// interpolation type
 
-					const interpolation = this._getInterpolation( textureWeightDefinition.interpolationType );
+					const interpolation = getInterpolation( textureWeightDefinition.interpolationType );
 
 					// keyframe track
 
@@ -1199,36 +1200,6 @@ class M2Loader extends Loader {
 		}
 
 		return textureWeights;
-
-	}
-
-	_getInterpolation( type ) {
-
-		let interpolation;
-
-		switch ( type ) {
-
-			case 0:
-				interpolation = InterpolateDiscrete;
-				break;
-
-			case 1:
-				interpolation = InterpolateLinear;
-				break;
-
-			case 2:
-			case 3:
-				interpolation = InterpolateSmooth;
-				break;
-
-			default:
-				console.warn( 'THREE.M2Loader: Unsupported interpolation type.' );
-				interpolation = InterpolateLinear; // fallback
-				break;
-
-		}
-
-		return interpolation;
 
 	}
 
@@ -1431,7 +1402,7 @@ class M2Loader extends Loader {
 
 	}
 
-	_readBoneDefinition( parser, header ) {
+	_readBoneDefinition( parser, header, sequenceManager ) {
 
 		const bone = new M2Bone();
 
@@ -1441,9 +1412,9 @@ class M2Loader extends Loader {
 		bone.submeshId = parser.readUInt16();
 		bone.boneNameCRC = parser.readUInt32();
 
-		bone.translation = this._readTrack( parser, header, 'vec3' );
-		bone.rotation = this._readTrack( parser, header, 'quatCompressed' );
-		bone.scale = this._readTrack( parser, header, 'vec3' );
+		bone.translation = this._readTrack( parser, header, 'vec3', sequenceManager );
+		bone.rotation = this._readTrack( parser, header, 'quatCompressed', sequenceManager );
+		bone.scale = this._readTrack( parser, header, 'vec3', sequenceManager );
 
 		bone.pivot.set(
 			parser.readFloat32(),
@@ -1455,7 +1426,7 @@ class M2Loader extends Loader {
 
 	}
 
-	_readBoneDefinitions( parser, header ) {
+	_readBoneDefinitions( parser, header, sequenceManager ) {
 
 		const length = header.bonesLength;
 		const offset = header.bonesOffset;
@@ -1467,7 +1438,7 @@ class M2Loader extends Loader {
 
 		for ( let i = 0; i < length; i ++ ) {
 
-			const bone = this._readBoneDefinition( parser, header );
+			const bone = this._readBoneDefinition( parser, header, sequenceManager );
 			bones.push( bone );
 
 		}
@@ -1543,7 +1514,7 @@ class M2Loader extends Loader {
 
 	}
 
-	_readColorDefinitions( parser, header ) {
+	_readColorDefinitions( parser, header, sequenceManager ) {
 
 		const length = header.colorsLength;
 		const offset = header.colorsOffset;
@@ -1557,8 +1528,8 @@ class M2Loader extends Loader {
 
 			const color = new M2Color();
 
-			color.color = this._readTrack( parser, header, 'vec3' );
-			color.alpha = this._readTrack( parser, header, 'fixed16' );
+			color.color = this._readTrack( parser, header, 'vec3', sequenceManager );
+			color.alpha = this._readTrack( parser, header, 'fixed16', sequenceManager );
 
 			colors.push( color );
 
@@ -1785,7 +1756,7 @@ class M2Loader extends Loader {
 
 	}
 
-	_readTextureTransformDefinitions( parser, header ) {
+	_readTextureTransformDefinitions( parser, header, sequenceManager ) {
 
 		const length = header.textureTransformsLength;
 		const offset = header.textureTransformsOffset;
@@ -1797,7 +1768,7 @@ class M2Loader extends Loader {
 
 		for ( let i = 0; i < length; i ++ ) {
 
-			const textureTransform = this._readTextureTransformDefinition( parser, header );
+			const textureTransform = this._readTextureTransformDefinition( parser, header, sequenceManager );
 			textureTransforms.push( textureTransform );
 
 		}
@@ -1809,13 +1780,13 @@ class M2Loader extends Loader {
 
 	}
 
-	_readTextureTransformDefinition( parser, header ) {
+	_readTextureTransformDefinition( parser, header, sequenceManager ) {
 
 		const textureTransform = new M2TextureTransform();
 
-		textureTransform.translation = this._readTrack( parser, header, 'vec3' );
-		textureTransform.rotation = this._readTrack( parser, header, 'quat' );
-		textureTransform.scale = this._readTrack( parser, header, 'vec3' );
+		textureTransform.translation = this._readTrack( parser, header, 'vec3', sequenceManager );
+		textureTransform.rotation = this._readTrack( parser, header, 'quat', sequenceManager );
+		textureTransform.scale = this._readTrack( parser, header, 'vec3', sequenceManager );
 
 		return textureTransform;
 
@@ -1843,7 +1814,7 @@ class M2Loader extends Loader {
 
 	}
 
-	_readTextureWeightDefinitions( parser, header ) {
+	_readTextureWeightDefinitions( parser, header, sequenceManager ) {
 
 		const length = header.textureWeightsLength;
 		const offset = header.textureWeightsOffset;
@@ -1855,7 +1826,7 @@ class M2Loader extends Loader {
 
 		for ( let i = 0; i < length; i ++ ) {
 
-			const track = this._readTrack( parser, header, 'fixed16' );
+			const track = this._readTrack( parser, header, 'fixed16', sequenceManager );
 
 			textureWeights.push( track );
 
@@ -1889,7 +1860,7 @@ class M2Loader extends Loader {
 
 	}
 
-	_readTrack( parser, header, type ) {
+	_readTrack( parser, header, type, sequenceManager ) {
 
 		const track = new M2Track();
 
@@ -1912,23 +1883,33 @@ class M2Loader extends Loader {
 
 			for ( let i = 0; i < timestampsLength; i ++ ) {
 
-				const values = [];
+				const length = parser.readUInt32();
+				const offset = parser.readUInt32();
 
-				const entryLength = parser.readUInt32();
-				const entryOffset = parser.readUInt32();
+				let values = new Array( length );
 
-				parser.saveState();
-				parser.moveTo( entryOffset );
+				if ( sequenceManager.isEmbeddedSequence( i ) ) {
 
-				for ( let j = 0; j < entryLength; j ++ ) {
+					parser.saveState();
+					parser.moveTo( offset );
 
-					values.push( parser.readUInt32() );
+					for ( let j = 0; j < length; j ++ ) {
+
+						values[ j ] = parser.readUInt32();
+
+					}
+
+					parser.restoreState();
+
+				} else {
+
+					values = values.fill( 0 );
+
+					// TODO: Save length and offset for later processing of external animations
 
 				}
 
 				track.timestamps.push( values );
-
-				parser.restoreState();
 
 			}
 
@@ -1944,84 +1925,94 @@ class M2Loader extends Loader {
 
 			for ( let i = 0; i < valuesLength; i ++ ) {
 
-				const values = [];
+				const length = parser.readUInt32();
+				const offset = parser.readUInt32();
 
-				const entryLength = parser.readUInt32();
-				const entryOffset = parser.readUInt32();
+				const itemSize = getItemSize( type );
+				let values = new Array( length * itemSize );
 
-				parser.saveState();
-				parser.moveTo( entryOffset );
+				if ( sequenceManager.isEmbeddedSequence( i ) ) {
 
-				for ( let j = 0; j < entryLength; j ++ ) {
+					parser.saveState();
+					parser.moveTo( offset );
 
-					switch ( type ) {
+					for ( let j = 0; j < length; j ++ ) {
 
-						case 'fixed16':
+						const stride = j * itemSize;
 
-							values.push(
-								parser.readInt16() / 0x7fff
-							);
+						switch ( type ) {
 
-							break;
+							case 'fixed16':
 
-						case 'vec2':
+								values[ stride ] = parser.readInt16() / 0x7fff;
 
-							values.push(
-								parser.readFloat32(),
-								parser.readFloat32()
-							);
+								break;
 
-							break;
+							case 'vec2':
 
-						case 'vec3':
+								values[ stride + 0 ] = parser.readFloat32();
+								values[ stride + 1 ] = parser.readFloat32();
 
-							values.push(
-								parser.readFloat32(),
-								parser.readFloat32(),
-								parser.readFloat32()
-							);
+								break;
 
-							break;
+							case 'vec3':
 
-						case 'quatCompressed':
+								values[ stride + 0 ] = parser.readFloat32();
+								values[ stride + 1 ] = parser.readFloat32();
+								values[ stride + 2 ] = parser.readFloat32();
 
-							// conversion from short to float, see https://wowdev.wiki/Quaternion_values_and_2.x
+								break;
 
-							let x = parser.readInt16();
-							let y = parser.readInt16();
-							let z = parser.readInt16();
-							let w = parser.readInt16();
+							case 'quatCompressed':
 
-							x = ( x < 0 ? x + 32768 : x - 32767 ) / 32767;
-							y = ( y < 0 ? y + 32768 : y - 32767 ) / 32767;
-							z = ( z < 0 ? z + 32768 : z - 32767 ) / 32767;
-							w = ( w < 0 ? w + 32768 : w - 32767 ) / 32767;
+								// conversion from short to float, see https://wowdev.wiki/Quaternion_values_and_2.x
 
-							values.push( x, y, z, w );
+								let x = parser.readInt16();
+								let y = parser.readInt16();
+								let z = parser.readInt16();
+								let w = parser.readInt16();
 
-							break;
+								x = ( x < 0 ? x + 32768 : x - 32767 ) / 32767;
+								y = ( y < 0 ? y + 32768 : y - 32767 ) / 32767;
+								z = ( z < 0 ? z + 32768 : z - 32767 ) / 32767;
+								w = ( w < 0 ? w + 32768 : w - 32767 ) / 32767;
 
-						case 'quat':
+								values[ stride + 0 ] = x;
+								values[ stride + 1 ] = y;
+								values[ stride + 2 ] = z;
+								values[ stride + 3 ] = w;
 
-							values.push(
-								parser.readFloat32(),
-								parser.readFloat32(),
-								parser.readFloat32(),
-								parser.readFloat32()
-							);
+								break;
 
-							break;
+							case 'quat':
 
-						default:
-							break;
+								values[ stride + 0 ] = parser.readFloat32();
+								values[ stride + 1 ] = parser.readFloat32();
+								values[ stride + 2 ] = parser.readFloat32();
+								values[ stride + 3 ] = parser.readFloat32();
+
+								break;
+
+							default:
+
+								console.error( 'THREE.M2Loader: Unsupported item type:', type );
+								break;
+
+						}
 
 					}
+
+					parser.restoreState();
+
+				} else {
+
+					values = values.fill( 0 );
+
+					// TODO: Save length and offset for later processing of external animations
 
 				}
 
 				track.values.push( values );
-
-				parser.restoreState();
 
 			}
 
@@ -2089,6 +2080,76 @@ class M2Loader extends Loader {
 		return vertex;
 
 	}
+
+}
+
+//
+
+function getInterpolation( type ) {
+
+	let interpolation;
+
+	switch ( type ) {
+
+		case 0:
+			interpolation = InterpolateDiscrete;
+			break;
+
+		case 1:
+			interpolation = InterpolateLinear;
+			break;
+
+		case 2:
+		case 3:
+			interpolation = InterpolateSmooth;
+			break;
+
+		default:
+			console.warn( 'THREE.M2Loader: Unsupported interpolation type:', type );
+			interpolation = InterpolateLinear; // fallback
+			break;
+
+	}
+
+	return interpolation;
+
+}
+
+function getItemSize( type ) {
+
+	let size = - 1;
+
+	switch ( type ) {
+
+		case 'fixed16':
+
+			size = 1;
+			break;
+
+		case 'vec2':
+
+			size = 2;
+			break;
+
+		case 'vec3':
+
+			size = 3;
+			break;
+
+		case 'quat':
+		case 'quatCompressed':
+
+			size = 4;
+			break;
+
+		default:
+			console.error( 'THREE.M2Loader: Unsupported item type:', type );
+			size = 0;
+			break;
+
+	}
+
+	return size;
 
 }
 
@@ -2741,17 +2802,20 @@ class SequenceManager {
 		this.sequences = sequences;
 		this.globalSequences = globalSequences;
 
-		this.currentSequenceId = - 1;
-
 		this._sequenceMap = new Map();
 		this._globalSequenceMap = new Map();
 		this._mixers = new Map();
 		this._globalMixers = new Map();
 
+		// setup maps
+
 		for ( let i = 0; i < sequences.length; i ++ ) {
 
 			const sequence = sequences[ i ];
-			this._sequenceMap.set( sequence.id, [] );
+
+			const key = computeSequenceKey( sequence.id, sequence.variationIndex );
+
+			this._sequenceMap.set( key, [] );
 
 		}
 
@@ -2767,8 +2831,10 @@ class SequenceManager {
 
 		const sequence = this.sequences[ i ];
 
-		const animations = this._sequenceMap.get( sequence.id );
-		animations.push( { clip, root, flags: sequence.flags, variationIndex: sequence.variationIndex } );
+		const key = computeSequenceKey( sequence.id, sequence.variationIndex );
+
+		const animations = this._sequenceMap.get( key );
+		animations.push( { clip, root, flags: sequence.flags } );
 
 		if ( this._mixers.has( root ) === false ) {
 
@@ -2791,45 +2857,59 @@ class SequenceManager {
 
 	}
 
+	isEmbeddedSequence( i ) {
+
+		const sequence = this.sequences[ i ];
+
+		return sequence.flags & M2_SEQUENCE_EMBEDDED_DATA;
+
+	}
+
 	playSequence( id, variationIndex = 0 ) {
 
-		const sequence = this._sequenceMap.get( id );
+		const key = computeSequenceKey( id, variationIndex );
+
+		const sequence = this._sequenceMap.get( key );
 
 		for ( const animation of sequence ) {
 
-			if ( animation.variationIndex === variationIndex ) {
+			if ( animation.flags & M2_SEQUENCE_EMBEDDED_DATA ) {
 
-				if ( animation.flags & M2_SEQUENCE_EMBEDDED_DATA ) {
+				const mixer = this._mixers.get( animation.root );
+				const action = mixer.clipAction( animation.clip );
+				action.play();
 
-					const mixer = this._mixers.get( animation.root );
-					const action = mixer.clipAction( animation.clip );
-					action.play();
+			} else {
 
-				} else {
+				// TODO: Add support for sequences with external animation data (.anim files)
 
-					// TODO: Add support for sequences with external animation data (.anim files)
-
-					console.warn( 'THREE.M2Loader: Sequences with external animation data not yet supported.' );
-
-				}
+				console.warn( 'THREE.M2Loader: Sequences with external animation data not yet supported.' );
 
 			}
 
 		}
 
-		this.currentSequenceId = id;
-
 	}
 
-	stopSequence() {
+	stopSequence( id, variationIndex = 0 ) {
 
-		if ( this.currentSequenceId === - 1 ) return;
+		const key = computeSequenceKey( id, variationIndex );
 
-		const sequence = this._sequenceMap.get( this.currentSequenceId );
+		const sequence = this._sequenceMap.get( key );
 
 		for ( const animation of sequence ) {
 
 			const mixer = this._mixers.get( animation.root );
+			mixer.stopAllAction();
+
+		}
+
+	}
+
+	stopAllSequences() {
+
+		for ( const mixer of this._mixers.values() ) {
+
 			mixer.stopAllAction();
 
 		}
@@ -2871,19 +2951,21 @@ class SequenceManager {
 
 		const list = [];
 
-		for ( const id of this._sequenceMap.keys() ) {
+		for ( const sequence of this.sequences ) {
 
-			const name = M2_ANIMATION_LIST[ id ];
+			if ( sequence.variationIndex > 0 ) continue; // ignore variations
+
+			const name = M2_ANIMATION_LIST[ sequence.id ];
 
 			if ( name === undefined ) {
 
-				console.warn( 'THREE.M2Loader: Unknown animation ID:', id );
+				console.warn( 'THREE.M2Loader: Unknown animation ID:', sequence.id );
 				name = '';
 
 			}
 
 			list.push( {
-				id: id,
+				id: sequence.id,
 				name: name
 
 			} );
@@ -2898,19 +2980,17 @@ class SequenceManager {
 
 	listVariations( id ) {
 
-		const variationsSet = new Set();
+		const list = [];
 
-		const animations = this._sequenceMap.get( id );
+		for ( const sequence of this.sequences ) {
 
-		for ( const animation of animations ) {
-
-			variationsSet.add( animation.variationIndex );
+			if ( sequence.id === id ) list.push( sequence.variationIndex );
 
 		}
 
-		const variations = Array.from( variationsSet ).sort( compareNumber );
+		list.sort( compareNumber );
 
-		return variations;
+		return list;
 
 	}
 
@@ -2948,6 +3028,12 @@ function compareId( a, b ) {
 function compareNumber( a, b ) {
 
 	return a - b;
+
+}
+
+function computeSequenceKey( sequenceId, variationIndex ) {
+
+	return sequenceId + '-' + variationIndex;
 
 }
 

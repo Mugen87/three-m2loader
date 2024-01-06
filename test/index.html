@@ -56,6 +56,9 @@
 			let gui, animationFolder, variationCtrl;
 
 			let m2Scene, m2SequenceManager;
+
+			let currentSequenceId = 0;
+			let currentSequenceVariation = 0;
 			
 			init();
 			animate();
@@ -205,8 +208,13 @@
 
 					// animations
 
-					m2SequenceManager.stopSequence();
+					m2SequenceManager.stopAllSequences();
 					m2SequenceManager.stopGlobalSequences();
+
+					currentSequenceId = 0;
+					currentSequenceVariation = 0;
+
+					// GUI
 
 					params.sequence = 0;
 					params.variation = 0;
@@ -220,10 +228,13 @@
 
 			function onSequenceChange( id ) {
 
-				m2SequenceManager.stopSequence();
-				m2SequenceManager.playSequence( id );
+				m2SequenceManager.stopSequence( currentSequenceId, currentSequenceVariation );
+				m2SequenceManager.playSequence( id, 0 );
 
-				//
+				currentSequenceId = id;
+				currentSequenceVariation = 0;
+
+				// GUI
 
 				params.variation = 0;
 
@@ -236,8 +247,10 @@
 
 			function onVariationChange( variationIndex ) {
 
-				m2SequenceManager.stopSequence();
-				m2SequenceManager.playSequence( m2SequenceManager.currentSequenceId, variationIndex );
+				m2SequenceManager.stopSequence( currentSequenceId, currentSequenceVariation );
+				m2SequenceManager.playSequence( currentSequenceId, variationIndex );
+
+				currentSequenceVariation = variationIndex;
 
 			}
 
