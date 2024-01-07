@@ -47,7 +47,7 @@ If you want to stop the playback of all active sequences, you can use the conven
 
 #### Variations
 
-Certain sequences like `Walk` or `AttackUnarmed` have multiple variations. You can list them for a given sequence via `listVariations()`.
+Certain sequences like `Stand` or `AttackUnarmed` have multiple variations. You can list them for a given sequence via `listVariations()`.
 
 ```js
 const variations = manager.listVariations( sequence.id );
