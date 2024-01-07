@@ -8,7 +8,7 @@
 | ------------- | ------------- | ------------- |
 | <img width="831" alt="image" src="https://user-images.githubusercontent.com/12612165/187862354-6399b1f3-fc07-4d97-8043-8a896fd5d063.png">  | <img width="863" alt="image" src="https://user-images.githubusercontent.com/12612165/187862411-97df95a5-ae00-4122-addf-31b1cb57bd6e.png">  | <img width="952" alt="image" src="https://user-images.githubusercontent.com/12612165/187862560-14f23b79-eff0-413a-a010-22f67387b7fd.png"> |
 
-### Usage
+### Basic Usage
 
 If you want to load an asset into your `three.js` app, you have to put all external resources like `.blp` or `.skin` files into the same directory like the M2 file. Depending on the M2 version, you have to name resources files with their `FileDataID` or with their actual file name. 
 
@@ -27,7 +27,7 @@ loader.load( 'models/cat/druidcat2.m2', function ( group ) {
 
 ### Animations
 
-#### Basics
+#### Sequences
 
 Animations in M2 are called *sequences*. The playback of sequences is managed with an instance of `SequenceManager`. You can access it in the `userData` field of the returned group. 
 ```js
@@ -38,7 +38,7 @@ You can list all available sequences of a M2 asset with `listSequences()`. The l
 ```js
 const sequences = manager.listSequences();
 ```
-If you want to play sequence, you can use `playSequence()`. `stopSequence()` stops the playback.
+If you want to play a sequence, you can use `playSequence()`. `stopSequence()` stops the playback.
 ```js
 manager.playSequence( sequence.id ); // start playback
 manager.stopSequence( sequence.id ); // stop playback
