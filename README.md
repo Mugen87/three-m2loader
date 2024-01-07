@@ -25,4 +25,52 @@ loader.load( 'models/cat/druidcat2.m2', function ( group ) {
 } );
 ```
 
+### Animations
+
+#### Basics
+
+Animations in M2 are called *sequences*. The playback of sequences is managed with an instance of `SequenceManager`. You can access it in the `userData` field of the returned group. 
+```js
+const manager = group.userData.sequenceManager;
+```
+
+You can list all available sequences of a M2 asset with `listSequences()`. The list represents an array with objects that hold the `id` and `name` of a sequence.
+```js
+const sequences = manager.listSequences();
+```
+If you want to play sequence, you can use `playSequence()`. `stopSequence()` stops the playback.
+```js
+manager.playSequence( sequence.id ); // start playback
+manager.stopSequence( sequence.id ); // stop playback
+```
+If you want to stop the playback of all active sequences, you can use the convenience method `stopAllSequences()`.
+
+#### Variations
+
+Certain sequences like `Walk` or `AttackUnarmed` have multiple variations. You can list them for a given sequence via `listVariations()`.
+
+```js
+const variations = manager.listVariations( sequence.id );
+```
+Keep in mind that all sequences have at least one variation (default). If you want to play or stop a sequence with a specific variation, use the second parameter of `playSequence()` and `stopSequence()`.
+```js
+manager.playSequence( sequence.id, variationIndex ); // start playback
+manager.stopSequence( sequence.id, variationIndex ); // stop playback
+```
+
+#### Global Sequences
+
+Certain M2 assets have so-called *global sequences*. They represent animations that are active all the time like the flowing water of a fountain or the effects of elemental spirits.
+You can check if a M2 asset has global sequences with `hasGlobalSequences()` and control the playback via `playGlobalSequences()` and `stopGlobalSequences()`.
+
+```js
+if ( manager.hasGlobalSequences() ) {
+
+    manager.playGlobalSequences();
+
+}
+```
+
+### Misc
+
 This loader requires `three.js` in version `r144` or higher.

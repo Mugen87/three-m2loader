@@ -48,7 +48,9 @@
 				'fountain/gilneas_fountain01.m2',
 				'barrel/7ne_nightelf_barrel01.m2',
 				'spell/g_scourgerunecirclecrystal.m2',
-				'airelemental/airelemental.m2'
+				'airelemental/airelemental.m2',
+				'malfurion/malfurionstormrage.m2',
+				'tyrande/tyrande.m2'
 			];
 
 			let camera, scene, renderer, controls, loader, clock;
@@ -90,7 +92,7 @@
 				controls = new OrbitControls( camera, renderer.domElement );
 				controls.minDistance = 2;
 				controls.maxDistance = 20;
-				controls.target.set( 0, 0.5, 0 );
+				controls.target.set( 0, 1, 0 );
 				controls.update();
 
 				window.addEventListener( 'resize', onWindowResize );
