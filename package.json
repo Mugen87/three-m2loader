@@ -1,6 +1,6 @@
 {
   "name": "three-m2loader",
-  "version": "5.0.0",
+  "version": "5.0.1",
   "description": "three.js loader for importing M2 assets from World of Warcraft.",
   "main": "M2Loader.js",
   "scripts": {
