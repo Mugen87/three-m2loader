@@ -917,12 +917,7 @@ class M2Loader extends Loader {
 
 					// ignore empty tracks
 
-					if ( times.length === 0 ) {
-
-						data.tracks[ j ] = [];
-						continue;
-
-					}
+					if ( times.length === 0 ) continue;
 
 					// values
 
@@ -981,12 +976,7 @@ class M2Loader extends Loader {
 
 					// ignore empty tracks
 
-					if ( times.length === 0 ) {
-
-						data.tracks[ j ] = [];
-						continue;
-
-					}
+					if ( times.length === 0 ) continue;
 
 					// values
 
@@ -1066,12 +1056,7 @@ class M2Loader extends Loader {
 
 					// ignore empty tracks
 
-					if ( times.length === 0 ) {
-
-						data.tracks[ j ] = [];
-						continue;
-
-					}
+					if ( times.length === 0 ) continue;
 
 					// interpolation type
 
