@@ -79,7 +79,7 @@ if ( manager.hasGlobalSequences() ) {
 
 ### Skins <a id="skins"></a>
 
-Some models (especially creatures) require the definition of a skin. This can be done with an instance of `M2Options` and the `setSkin()` method. You have to pass in the `FileDataID`s
+Some models (especially creatures) require the definition of a skin. This can be done with an instance of `M2Options` and the `setSkin( id1, id2, id3 )` method. You have to pass in the `FileDataID`s
 of the textures that should represent the skin.
 
 ```js
