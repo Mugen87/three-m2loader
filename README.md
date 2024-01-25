@@ -8,7 +8,13 @@
 | ------------- | ------------- | ------------- |
 | <img width="831" alt="image" src="https://user-images.githubusercontent.com/12612165/187862354-6399b1f3-fc07-4d97-8043-8a896fd5d063.png">  | <img width="863" alt="image" src="https://user-images.githubusercontent.com/12612165/187862411-97df95a5-ae00-4122-addf-31b1cb57bd6e.png">  | <img width="952" alt="image" src="https://user-images.githubusercontent.com/12612165/187862560-14f23b79-eff0-413a-a010-22f67387b7fd.png"> |
 
-### Basic Usage
+### Table of contents
+1. [Basic Usage](#basic-usage)
+2. [Animations](#animations)
+3. [Skins](#skins)
+4. [Misc](#misc)
+
+### Basic Usage  <a id="basic-usage"></a>
 
 If you want to load an asset into your `three.js` app, you have to put all external resources like `.blp` or `.skin` files into the same directory like the M2 file. Depending on the M2 version, you have to name resources files with their `FileDataID` or with their actual file name. 
 
@@ -25,7 +31,7 @@ loader.load( 'models/cat/druidcat2.m2', function ( group ) {
 } );
 ```
 
-### Animations
+### Animations <a id="animations"></a>
 
 #### Sequences
 
@@ -71,7 +77,7 @@ if ( manager.hasGlobalSequences() ) {
 }
 ```
 
-### Skins
+### Skins <a id="skins"></a>
 
 Some models (especially creatures) require the definition of a skin. This can be done with an instance of `M2Options` and the `setSkin()` method. You have to pass in the `FileDataID`s
 of the textures that should represent the skin.
@@ -91,6 +97,6 @@ You can use the same approach to overwrite the default skin of creatures (e.g. t
 
 To retain the parameter order of `three.js` loaders, the `options` parameter comes after the three callback functions `onLoad()`, `onProgress()` and `onError()`.
  
-### Misc
+### Misc <a id="misc"></a>
 
 This loader requires `three.js` in version `r144` or higher.
