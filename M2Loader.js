@@ -105,6 +105,7 @@ class M2Loader extends Loader {
 	*
 	* @param {ArrayBuffer} buffer - The loaded M2 data.
 	* @param {String} url - The URL to the M2 asset.
+	* @returns {THREE.Group} The parsed M2 asset.
 	*/
 	async parse( buffer, url ) {
 
@@ -3219,7 +3220,7 @@ class PivotBone extends Bone {
  * onLoad callback
  *
  * @callback onLoad
- * @param {THREE.Group} object - The result object.
+ * @param {THREE.Group} object - The parsed M2 asset. Add this group to your scene graph for rendering.
  */
 
 /**
