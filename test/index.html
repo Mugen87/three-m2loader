@@ -30,7 +30,7 @@
 			import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 			import { GUI } from 'lil-gui';
 
-			import { M2Loader } from '../M2Loader.js';
+			import { M2Loader, M2Options } from '../M2Loader.js';
 
 			const params = {
 				asset: 'cat/druidcat2.m2',
@@ -42,6 +42,7 @@
 			const assets = [
 				'airelemental/airelemental.m2',
 				'barrel/7ne_nightelf_barrel01.m2',
+				'bearmount/bearmount.m2',
 				'cat/druidcat2.m2',
 				'desk/7ne_druid_worktable01.m2',
 				'desk2/7ne_druid_worktable02.m2',
@@ -52,6 +53,10 @@
 				'spell/g_scourgerunecirclecrystal.m2',
 				'tyrande/tyrande.m2'
 			];
+
+			const skinIds = {
+				'bearmount/bearmount.m2': [ 2015464, 123060 ] // these FileDataID represent BLP textures
+			};
 
 			let camera, scene, renderer, controls, loader, clock;
 			
@@ -112,6 +117,17 @@
 
 			function loadAsset( asset ) {
 
+				const options = new M2Options();
+
+				if ( skinIds[ asset ] !== undefined ) {
+
+					const ids = skinIds[ asset ];
+					options.setSkin( ids[ 0 ], ids[ 1 ], ids[ 2 ] );
+
+				}
+
+				//
+
 				loader.load( 'models/' + asset, function ( m2 ) {
 
 					m2.rotation.x = - 0.5 * Math.PI;
@@ -161,7 +177,7 @@
 			
 					}
 
-				} );
+				}, undefined, undefined, options );
 
 			}
 

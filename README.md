@@ -71,6 +71,26 @@ if ( manager.hasGlobalSequences() ) {
 }
 ```
 
+### Skins
+
+Some models (especially creatures) require the definition of a skin. This can be done with an instance of `M2Options` and the `setSkin()` method. You have to pass in the `FileDataID`s
+of the textures that should represent the skin.
+
+```js
+const options = new M2Options();
+options.setSkin( 2015464, 123060 ); // 2015464 and 123060 are FileDataIDs representing BLP textures
+
+const loader = new M2Loader();
+loader.load( 'bearmount/bearmount.m2', function ( group ) {
+
+    scene.add( group );
+
+}, undefined, undefined, options );
+```
+You can use the same approach to overwrite the default skin of creatures (e.g. to switch the body color).
+
+To retain the parameter order of `three.js` loaders, the `options` parameter comes after the three callback functions `onLoad()`, `onProgress()` and `onError()`.
+ 
 ### Misc
 
 This loader requires `three.js` in version `r144` or higher.

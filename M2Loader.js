@@ -66,8 +66,9 @@ class M2Loader extends Loader {
 	* @param {onLoad} onLoad - A callback function executed when the asset has been loaded.
 	* @param {onProgress} onProgress - A callback function executed during the loading process indicating the progress.
 	* @param {onError} onError - A callback function executed when an error occurs.
+	* @param {M2Options} options - An optional configuration object.
 	*/
-	load( url, onLoad, onProgress, onError ) {
+	load( url, onLoad, onProgress, onError, options = new M2Options() ) {
 
 		const loader = new FileLoader( this.manager );
 		loader.setPath( this.path );
@@ -78,7 +79,7 @@ class M2Loader extends Loader {
 
 			try {
 
-				this.parse( buffer, url ).then( onLoad );
+				this.parse( buffer, url, options ).then( onLoad );
 
 			} catch ( e ) {
 
@@ -101,13 +102,34 @@ class M2Loader extends Loader {
 	}
 
 	/**
+	* Overwrites the implementation in THREE.Loader to support the options parameter.
+	*
+	* @param {String} url - The URL to the M2 asset.
+	* @param {onProgress} onProgress - A callback function executed during the loading process indicating the progress.
+	* @param {M2Options} options - An optional configuration object.
+	* @returns {Promise} A promise representing the async loading and parsing process.
+	*/
+	loadAsync( url, onProgress, options ) {
+
+		const scope = this;
+
+		return new Promise( function ( resolve, reject ) {
+
+			scope.load( url, resolve, onProgress, reject, options );
+
+		} );
+
+	}
+
+	/**
 	* This method parses the loaded M2 data and creates three.js entities for rendering.
 	*
 	* @param {ArrayBuffer} buffer - The loaded M2 data.
 	* @param {String} url - The URL to the M2 asset.
+	* @param {M2Options} options - Holds optional configuration data.
 	* @returns {THREE.Group} The parsed M2 asset.
 	*/
-	async parse( buffer, url ) {
+	async parse( buffer, url, options ) {
 
 		const parser = new BinaryParser( buffer );
 		const resourcePath = LoaderUtils.extractUrlBase( url );
@@ -185,7 +207,7 @@ class M2Loader extends Loader {
 
 		// load textures and skin data asynchronously
 
-		const textures = await Promise.all( this._loadTextures( textureDefinitions, textureLoader, chunks ) );
+		const textures = await Promise.all( this._loadTextures( textureDefinitions, textureLoader, chunks, options ) );
 		const skinData = await this._loadSkin( header, parser, skinLoader, name, chunks );
 
 		// build scene
@@ -1127,7 +1149,7 @@ class M2Loader extends Loader {
 
 	}
 
-	_loadTextures( textureDefinitions, loader, chunks ) {
+	_loadTextures( textureDefinitions, loader, chunks, options ) {
 
 		const promises = [];
 
@@ -1135,6 +1157,24 @@ class M2Loader extends Loader {
 
 			const textureDefinition = textureDefinitions[ i ];
 			let filename = textureDefinition.filename;
+
+			const textureIds = options._textureIds;
+
+			// get filename from options if configured
+
+			if ( textureDefinition.type === M2_TEX_COMPONENT_MONSTER_1 && textureIds.has( M2_TEX_COMPONENT_MONSTER_1 ) ) {
+
+				filename = textureIds.get( M2_TEX_COMPONENT_MONSTER_1 ) + '.blp';
+
+			} else if ( textureDefinition.type === M2_TEX_COMPONENT_MONSTER_2 && textureIds.has( M2_TEX_COMPONENT_MONSTER_2 ) ) {
+
+				filename = textureIds.get( M2_TEX_COMPONENT_MONSTER_2 ) + '.blp';
+
+			} else if ( textureDefinition.type === M2_TEX_COMPONENT_MONSTER_3 && textureIds.has( M2_TEX_COMPONENT_MONSTER_3 ) ) {
+
+				filename = textureIds.get( M2_TEX_COMPONENT_MONSTER_3 ) + '.blp';
+
+			}
 
 			// if the filename is empty, use the FileDataID field from the TXID chunk
 
@@ -2108,6 +2148,10 @@ const M2_BLEND_ALPHA = 2;
 const M2_BLEND_ADD = 4;
 
 const M2_SEQUENCE_EMBEDDED_DATA = 0x20;
+
+const M2_TEX_COMPONENT_MONSTER_1 = 11;
+const M2_TEX_COMPONENT_MONSTER_2 = 12;
+const M2_TEX_COMPONENT_MONSTER_3 = 13;
 
 const M2_ANIMATION_LIST = [ "Stand", "Death", "Spell", "Stop", "Walk", "Run", "Dead", "Rise", "StandWound", "CombatWound", "CombatCritical", "ShuffleLeft", "ShuffleRight", "Walkbackwards", "Stun", "HandsClosed", "AttackUnarmed", "Attack1H", "Attack2H", "Attack2HL", "ParryUnarmed", "Parry1H", "Parry2H", "Parry2HL", "ShieldBlock", "ReadyUnarmed", "Ready1H", "Ready2H", "Ready2HL", "ReadyBow", "Dodge", "SpellPrecast", "SpellCast", "SpellCastArea", "NPCWelcome", "NPCGoodbye", "Block", "JumpStart", "Jump", "JumpEnd", "Fall", "SwimIdle", "Swim", "SwimLeft", "SwimRight", "SwimBackwards", "AttackBow", "FireBow", "ReadyRifle", "AttackRifle", "Loot", "ReadySpellDirected", "ReadySpellOmni", "SpellCastDirected", "SpellCastOmni", "BattleRoar", "ReadyAbility", "Special1H", "Special2H", "ShieldBash", "EmoteTalk", "EmoteEat", "EmoteWork", "EmoteUseStanding", "EmoteTalkExclamation", "EmoteTalkQuestion", "EmoteBow", "EmoteWave", "EmoteCheer", "EmoteDance", "EmoteLaugh", "EmoteSleep", "EmoteSitGround", "EmoteRude", "EmoteRoar", "EmoteKneel", "EmoteKiss", "EmoteCry", "EmoteChicken", "EmoteBeg", "EmoteApplaud", "EmoteShout", "EmoteFlex", "EmoteShy", "EmotePoint", "Attack1HPierce", "Attack2HLoosePierce", "AttackOff", "AttackOffPierce", "Sheath", "HipSheath", "Mount", "RunRight", "RunLeft", "MountSpecial", "Kick", "SitGroundDown", "SitGround", "SitGroundUp", "SleepDown", "Sleep", "SleepUp", "SitChairLow", "SitChairMed", "SitChairHigh", "LoadBow", "LoadRifle", "AttackThrown", "ReadyThrown", "HoldBow", "HoldRifle", "HoldThrown", "LoadThrown", "EmoteSalute", "KneelStart", "KneelLoop", "KneelEnd", "AttackUnarmedOff", "SpecialUnarmed", "StealthWalk", "StealthStand", "Knockdown", "EatingLoop", "UseStandingLoop", "ChannelCastDirected", "ChannelCastOmni", "Whirlwind", "Birth", "UseStandingStart", "UseStandingEnd", "CreatureSpecial", "Drown", "Drowned", "FishingCast", "FishingLoop", "Fly", "EmoteWorkNoSheathe", "EmoteStunNoSheathe", "EmoteUseStandingNoSheathe", "SpellSleepDown", "SpellKneelStart", "SpellKneelLoop", "SpellKneelEnd", "Sprint", "InFlight", "Spawn", "Close", "Closed", "Open", "Opened", "Destroy", "Destroyed", "Rebuild", "Custom0", "Custom1", "Custom2", "Custom3", "Despawn", "Hold", "Decay", "BowPull", "BowRelease", "ShipStart", "ShipMoving", "ShipStop", "GroupArrow", "Arrow", "CorpseArrow", "GuideArrow", "Sway", "DruidCatPounce", "DruidCatRip", "DruidCatRake", "DruidCatRavage", "DruidCatClaw", "DruidCatCower", "DruidBearSwipe", "DruidBearBite", "DruidBearMaul", "DruidBearBash", "DragonTail", "DragonStomp", "DragonSpit", "DragonSpitHover", "DragonSpitFly", "EmoteYes", "EmoteNo", "JumpLandRun", "LootHold", "LootUp", "StandHigh", "Impact", "LiftOff", "Hover", "SuccubusEntice", "EmoteTrain", "EmoteDead", "EmoteDanceOnce", "Deflect", "EmoteEatNoSheathe", "Land", "Submerge", "Submerged", "Cannibalize", "ArrowBirth", "GroupArrowBirth", "CorpseArrowBirth", "GuideArrowBirth", "EmoteTalkNoSheathe", "EmotePointNoSheathe", "EmoteSaluteNoSheathe", "EmoteDanceSpecial", "Mutilate", "CustomSpell01", "CustomSpell02", "CustomSpell03", "CustomSpell04", "CustomSpell05", "CustomSpell06", "CustomSpell07", "CustomSpell08", "CustomSpell09", "CustomSpell10", "StealthRun", "Emerge", "Cower", "Grab", "GrabClosed", "GrabThrown", "FlyStand", "FlyDeath", "FlySpell", "FlyStop", "FlyWalk", "FlyRun", "FlyDead", "FlyRise", "FlyStandWound", "FlyCombatWound", "FlyCombatCritical", "FlyShuffleLeft", "FlyShuffleRight", "FlyWalkbackwards", "FlyStun", "FlyHandsClosed", "FlyAttackUnarmed", "FlyAttack1H", "FlyAttack2H", "FlyAttack2HL", "FlyParryUnarmed", "FlyParry1H", "FlyParry2H", "FlyParry2HL", "FlyShieldBlock", "FlyReadyUnarmed", "FlyReady1H", "FlyReady2H", "FlyReady2HL", "FlyReadyBow", "FlyDodge", "FlySpellPrecast", "FlySpellCast", "FlySpellCastArea", "FlyNPCWelcome", "FlyNPCGoodbye", "FlyBlock", "FlyJumpStart", "FlyJump", "FlyJumpEnd", "FlyFall", "FlySwimIdle", "FlySwim", "FlySwimLeft", "FlySwimRight", "FlySwimBackwards", "FlyAttackBow", "FlyFireBow", "FlyReadyRifle", "FlyAttackRifle", "FlyLoot", "FlyReadySpellDirected", "FlyReadySpellOmni", "FlySpellCastDirected", "FlySpellCastOmni", "FlyBattleRoar", "FlyReadyAbility", "FlySpecial1H", "FlySpecial2H", "FlyShieldBash", "FlyEmoteTalk", "FlyEmoteEat", "FlyEmoteWork", "FlyEmoteUseStanding", "FlyEmoteTalkExclamation", "FlyEmoteTalkQuestion", "FlyEmoteBow", "FlyEmoteWave", "FlyEmoteCheer", "FlyEmoteDance", "FlyEmoteLaugh", "FlyEmoteSleep", "FlyEmoteSitGround", "FlyEmoteRude", "FlyEmoteRoar", "FlyEmoteKneel", "FlyEmoteKiss", "FlyEmoteCry", "FlyEmoteChicken", "FlyEmoteBeg", "FlyEmoteApplaud", "FlyEmoteShout", "FlyEmoteFlex", "FlyEmoteShy", "FlyEmotePoint", "FlyAttack1HPierce", "FlyAttack2HLoosePierce", "FlyAttackOff", "FlyAttackOffPierce", "FlySheath", "FlyHipSheath", "FlyMount", "FlyRunRight", "FlyRunLeft", "FlyMountSpecial", "FlyKick", "FlySitGroundDown", "FlySitGround", "FlySitGroundUp", "FlySleepDown", "FlySleep", "FlySleepUp", "FlySitChairLow", "FlySitChairMed", "FlySitChairHigh", "FlyLoadBow", "FlyLoadRifle", "FlyAttackThrown", "FlyReadyThrown", "FlyHoldBow", "FlyHoldRifle", "FlyHoldThrown", "FlyLoadThrown", "FlyEmoteSalute", "FlyKneelStart", "FlyKneelLoop", "FlyKneelEnd", "FlyAttackUnarmedOff", "FlySpecialUnarmed", "FlyStealthWalk", "FlyStealthStand", "FlyKnockdown", "FlyEatingLoop", "FlyUseStandingLoop", "FlyChannelCastDirected", "FlyChannelCastOmni", "FlyWhirlwind", "FlyBirth", "FlyUseStandingStart", "FlyUseStandingEnd", "FlyCreatureSpecial", "FlyDrown", "FlyDrowned", "FlyFishingCast", "FlyFishingLoop", "FlyFly",
 	"FlyEmoteWorkNoSheathe", "FlyEmoteStunNoSheathe", "FlyEmoteUseStandingNoSheathe", "FlySpellSleepDown", "FlySpellKneelStart", "FlySpellKneelLoop", "FlySpellKneelEnd", "FlySprint", "FlyInFlight", "FlySpawn", "FlyClose", "FlyClosed", "FlyOpen", "FlyOpened", "FlyDestroy", "FlyDestroyed", "FlyRebuild", "FlyCustom0", "FlyCustom1", "FlyCustom2", "FlyCustom3", "FlyDespawn", "FlyHold", "FlyDecay", "FlyBowPull", "FlyBowRelease", "FlyShipStart", "FlyShipMoving", "FlyShipStop", "FlyGroupArrow", "FlyArrow", "FlyCorpseArrow", "FlyGuideArrow", "FlySway", "FlyDruidCatPounce", "FlyDruidCatRip", "FlyDruidCatRake", "FlyDruidCatRavage", "FlyDruidCatClaw", "FlyDruidCatCower", "FlyDruidBearSwipe", "FlyDruidBearBite", "FlyDruidBearMaul", "FlyDruidBearBash", "FlyDragonTail", "FlyDragonStomp", "FlyDragonSpit", "FlyDragonSpitHover", "FlyDragonSpitFly", "FlyEmoteYes", "FlyEmoteNo", "FlyJumpLandRun", "FlyLootHold", "FlyLootUp", "FlyStandHigh", "FlyImpact", "FlyLiftOff", "FlyHover", "FlySuccubusEntice", "FlyEmoteTrain", "FlyEmoteDead", "FlyEmoteDanceOnce", "FlyDeflect", "FlyEmoteEatNoSheathe", "FlyLand", "FlySubmerge", "FlySubmerged", "FlyCannibalize", "FlyArrowBirth", "FlyGroupArrowBirth", "FlyCorpseArrowBirth", "FlyGuideArrowBirth", "FlyEmoteTalkNoSheathe", "FlyEmotePointNoSheathe", "FlyEmoteSaluteNoSheathe", "FlyEmoteDanceSpecial", "FlyMutilate", "FlyCustomSpell01", "FlyCustomSpell02", "FlyCustomSpell03", "FlyCustomSpell04", "FlyCustomSpell05", "FlyCustomSpell06", "FlyCustomSpell07", "FlyCustomSpell08", "FlyCustomSpell09", "FlyCustomSpell10", "FlyStealthRun", "FlyEmerge", "FlyCower", "FlyGrab", "FlyGrabClosed", "FlyGrabThrown", "ToFly", "ToHover", "ToGround", "FlyToFly", "FlyToHover", "FlyToGround", "Settle", "FlySettle", "DeathStart", "DeathLoop", "DeathEnd", "FlyDeathStart", "FlyDeathLoop", "FlyDeathEnd", "DeathEndHold", "FlyDeathEndHold", "Strangulate", "FlyStrangulate", "ReadyJoust", "LoadJoust", "HoldJoust", "FlyReadyJoust", "FlyLoadJoust", "FlyHoldJoust", "AttackJoust", "FlyAttackJoust", "ReclinedMount", "FlyReclinedMount", "ToAltered", "FromAltered", "FlyToAltered", "FlyFromAltered", "InStocks", "FlyInStocks", "VehicleGrab", "VehicleThrow", "FlyVehicleGrab", "FlyVehicleThrow", "ToAlteredPostSwap", "FromAlteredPostSwap", "FlyToAlteredPostSwap", "FlyFromAlteredPostSwap", "ReclinedMountPassenger", "FlyReclinedMountPassenger", "Carry2H", "Carried2H", "FlyCarry2H", "FlyCarried2H", "EmoteSniff", "EmoteFlySniff", "AttackFist1H", "FlyAttackFist1H", "AttackFist1HOff", "FlyAttackFist1HOff", "ParryFist1H", "FlyParryFist1H", "ReadyFist1H", "FlyReadyFist1H", "SpecialFist1H", "FlySpecialFist1H", "EmoteReadStart", "FlyEmoteReadStart", "EmoteReadLoop", "FlyEmoteReadLoop", "EmoteReadEnd", "FlyEmoteReadEnd", "SwimRun", "FlySwimRun", "SwimWalk", "FlySwimWalk", "SwimWalkBackwards", "FlySwimWalkBackwards", "SwimSprint", "FlySwimSprint", "MountSwimIdle", "FlyMountSwimIdle", "MountSwimBackwards", "FlyMountSwimBackwards", "MountSwimLeft", "FlyMountSwimLeft", "MountSwimRight", "FlyMountSwimRight", "MountSwimRun", "FlyMountSwimRun", "MountSwimSprint", "FlyMountSwimSprint", "MountSwimWalk", "FlyMountSwimWalk", "MountSwimWalkBackwards", "FlyMountSwimWalkBackwards", "MountFlightIdle", "FlyMountFlightIdle", "MountFlightBackwards", "FlyMountFlightBackwards", "MountFlightLeft", "FlyMountFlightLeft", "MountFlightRight", "FlyMountFlightRight", "MountFlightRun", "FlyMountFlightRun", "MountFlightSprint", "FlyMountFlightSprint", "MountFlightWalk", "FlyMountFlightWalk", "MountFlightWalkBackwards", "FlyMountFlightWalkBackwards", "MountFlightStart", "FlyMountFlightStart", "MountSwimStart", "FlyMountSwimStart", "MountSwimLand", "FlyMountSwimLand", "MountSwimLandRun", "FlyMountSwimLandRun", "MountFlightLand", "FlyMountFlightLand", "MountFlightLandRun", "FlyMountFlightLandRun", "ReadyBlowDart", "FlyReadyBlowDart", "LoadBlowDart", "FlyLoadBlowDart", "HoldBlowDart", "FlyHoldBlowDart", "AttackBlowDart", "FlyAttackBlowDart", "CarriageMount", "FlyCarriageMount", "CarriagePassengerMount", "FlyCarriagePassengerMount", "CarriageMountAttack", "FlyCarriageMountAttack", "BarTendStand", "FlyBarTendStand", "BarServerWalk", "FlyBarServerWalk", "BarServerRun", "FlyBarServerRun", "BarServerShuffleLeft", "FlyBarServerShuffleLeft", "BarServerShuffleRight", "FlyBarServerShuffleRight", "BarTendEmoteTalk", "FlyBarTendEmoteTalk", "BarTendEmotePoint", "FlyBarTendEmotePoint", "BarServerStand", "FlyBarServerStand", "BarSweepWalk", "FlyBarSweepWalk", "BarSweepRun", "FlyBarSweepRun", "BarSweepShuffleLeft", "FlyBarSweepShuffleLeft", "BarSweepShuffleRight", "FlyBarSweepShuffleRight", "BarSweepEmoteTalk", "FlyBarSweepEmoteTalk", "BarPatronSitEmotePoint", "FlyBarPatronSitEmotePoint", "MountSelfIdle", "FlyMountSelfIdle", "MountSelfWalk", "FlyMountSelfWalk", "MountSelfRun", "FlyMountSelfRun", "MountSelfSprint", "FlyMountSelfSprint", "MountSelfRunLeft", "FlyMountSelfRunLeft", "MountSelfRunRight", "FlyMountSelfRunRight", "MountSelfShuffleLeft", "FlyMountSelfShuffleLeft", "MountSelfShuffleRight", "FlyMountSelfShuffleRight", "MountSelfWalkBackwards", "FlyMountSelfWalkBackwards", "MountSelfSpecial", "FlyMountSelfSpecial", "MountSelfJump", "FlyMountSelfJump", "MountSelfJumpStart", "FlyMountSelfJumpStart", "MountSelfJumpEnd", "FlyMountSelfJumpEnd", "MountSelfJumpLandRun", "FlyMountSelfJumpLandRun", "MountSelfStart", "FlyMountSelfStart", "MountSelfFall", "FlyMountSelfFall", "Stormstrike", "FlyStormstrike", "ReadyJoustNoSheathe", "FlyReadyJoustNoSheathe", "Slam", "FlySlam", "DeathStrike", "FlyDeathStrike",
@@ -3214,6 +3258,42 @@ class PivotBone extends Bone {
 
 }
 
+/**
+* Instances of this class can be used to configure the loading process of M2 assets.
+*/
+class M2Options {
+
+	/**
+	* Creates a new options object.
+	*/
+	constructor() {
+
+		this._textureIds = new Map();
+
+	}
+
+	/**
+	* Configures skin textures for creatures or game objects.
+	*
+	* @param {Number} id1 - A FileDataID representing the first skin texture.
+	* @param {Number} id2 - A FileDataID representing the second skin texture.
+	* @param {Number} id3 - A FileDataID representing the third skin texture.
+	* @returns {this} A reference to this options object.
+	*/
+	setSkin( id1 = null, id2 = null, id3 = null ) {
+
+		const textureIds = this._textureIds;
+
+		if ( id1 !== null ) textureIds.set( M2_TEX_COMPONENT_MONSTER_1, id1 );
+		if ( id2 !== null ) textureIds.set( M2_TEX_COMPONENT_MONSTER_2, id2 );
+		if ( id3 !== null ) textureIds.set( M2_TEX_COMPONENT_MONSTER_3, id3 );
+
+		return this;
+
+	}
+
+}
+
 // JSDoc
 
 /**
@@ -3237,4 +3317,4 @@ class PivotBone extends Bone {
  * @param {Error} error - The error object.
  */
 
-export { M2Loader, BLPLoader };
+export { M2Loader, M2Options, BLPLoader };
