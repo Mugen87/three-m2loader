@@ -176,11 +176,11 @@ class M2Loader extends Loader {
 
 		const textureLoader = new BLPLoader( this.manager );
 		textureLoader.setPath( resourcePath );
-		textureLoader.setHeader( header );
+		textureLoader.setVersion( header.version );
 
 		const skinLoader = new M2SkinLoader( this.manager );
 		skinLoader.setPath( resourcePath );
-		skinLoader.setHeader( header );
+		skinLoader.setVersion( header.version );
 
 		// load textures and skin data asynchronously
 
@@ -2124,13 +2124,13 @@ class M2SkinLoader extends Loader {
 
 		super( manager );
 
-		this.header = null;
+		this.version = null;
 
 	}
 
-	setHeader( header ) {
+	setVersion( version ) {
 
-		this.header = header;
+		this.version = version;
 
 	}
 
@@ -2170,9 +2170,8 @@ class M2SkinLoader extends Loader {
 	parse( buffer ) {
 
 		const parser = new BinaryParser( buffer );
-		const header = this.header;
 
-		if ( header.version >= M2_VERSION_WRATH_OF_THE_LICH_KING ) {
+		if ( this.version >= M2_VERSION_WRATH_OF_THE_LICH_KING ) {
 
 			const magic = parser.readString( 4 );
 
@@ -2184,11 +2183,11 @@ class M2SkinLoader extends Loader {
 
 		}
 
-		return this.read( parser, header );
+		return this.read( parser );
 
 	}
 
-	read( parser, header ) {
+	read( parser ) {
 
 		// header
 
@@ -2250,7 +2249,7 @@ class M2SkinLoader extends Loader {
 
 		for ( let i = 0; i < submeshesLength; i ++ ) {
 
-			const submesh = this._readSubmesh( parser, header );
+			const submesh = this._readSubmesh( parser );
 			submeshes.push( submesh );
 
 		}
@@ -2296,7 +2295,7 @@ class M2SkinLoader extends Loader {
 
 	}
 
-	_readSubmesh( parser, header ) {
+	_readSubmesh( parser ) {
 
 		const submesh = new M2SkinSection();
 
@@ -2317,7 +2316,7 @@ class M2SkinLoader extends Loader {
 			parser.readFloat32()
 		);
 
-		if ( header.version >= M2_VERSION_THE_BURNING_CRUSADE ) {
+		if ( this.version >= M2_VERSION_THE_BURNING_CRUSADE ) {
 
 			submesh.sortCenterPosition.set(
 				parser.readFloat32(),
@@ -2343,13 +2342,13 @@ class BLPLoader extends Loader {
 
 		super( manager );
 
-		this.header = null;
+		this.version = null;
 
 	}
 
-	setHeader( header ) {
+	setVersion( version ) {
 
-		this.header = header;
+		this.version = version;
 
 	}
 
@@ -2367,7 +2366,10 @@ class BLPLoader extends Loader {
 
 			try {
 
-				onLoad( this.parse( buffer, url, flags ) );
+				const texture = this.parse( buffer, flags );
+				texture.name = url;
+
+				onLoad( texture );
 
 			} catch ( e ) {
 
@@ -2389,7 +2391,7 @@ class BLPLoader extends Loader {
 
 	}
 
-	parse( buffer, url, flags ) {
+	parse( buffer, flags = 0 ) {
 
 		const parser = new BinaryParser( buffer );
 
@@ -2559,8 +2561,6 @@ class BLPLoader extends Loader {
 
 		if ( flags & 0x1 ) texture.wrapS = RepeatWrapping;
 		if ( flags & 0x2 ) texture.wrapT = RepeatWrapping;
-
-		texture.name = url;
 
 		return texture;
 
