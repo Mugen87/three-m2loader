@@ -184,7 +184,7 @@ class M2Loader extends Loader {
 
 		// load textures and skin data asynchronously
 
-		const textures = await Promise.all( this._loadTextures( textureDefinitions, textureLoader, name, chunks ) );
+		const textures = await Promise.all( this._loadTextures( textureDefinitions, textureLoader, chunks ) );
 		const skinData = await this._loadSkin( header, parser, skinLoader, name, chunks );
 
 		// build scene
@@ -1126,7 +1126,7 @@ class M2Loader extends Loader {
 
 	}
 
-	_loadTextures( textureDefinitions, loader, name, chunks ) {
+	_loadTextures( textureDefinitions, loader, chunks ) {
 
 		const promises = [];
 
@@ -1144,22 +1144,6 @@ class M2Loader extends Loader {
 				if ( textureFileDataIds !== undefined ) {
 
 					filename = textureFileDataIds[ i ] + '.blp';
-
-				}
-
-			}
-
-			// fallback: if the first texture has an empty name, use .m2 name
-
-			if ( filename === '' ) {
-
-				if ( i === 0 ) {
-
-					filename = ( name + '.blp' ).toLowerCase();
-
-				} else {
-
-					continue;
 
 				}
 
