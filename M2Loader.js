@@ -3236,4 +3236,4 @@ class PivotBone extends Bone {
  * @param {Error} error - The error object.
  */
 
-export { M2Loader };
+export { M2Loader, BLPLoader };
