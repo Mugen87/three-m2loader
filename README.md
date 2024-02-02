@@ -11,7 +11,7 @@
 ### Table of contents
 1. [Basic Usage](#basic-usage)
 2. [Animations](#animations)
-3. [Skins](#skins)
+3. [Skin Textures](#skin-textures)
 4. [Misc](#misc)
 
 ### Basic Usage  <a id="basic-usage"></a>
@@ -77,9 +77,9 @@ if ( manager.hasGlobalSequences() ) {
 }
 ```
 
-### Skins <a id="skins"></a>
+### Skin Textures <a id="skin-textures"></a>
 
-Some models (especially creatures) require the definition of a skin. This can be done with an instance of `M2Options` and the `setSkin( id1, id2, id3 )` method. You have to pass in the `FileDataID`s
+Some models (especially creatures) require the definition of a skin textures. This can be done with an instance of `M2Options` and the `setSkin( id1, id2, id3 )` method. You have to pass in the `FileDataID`s
 of the textures that should represent the skin.
 
 ```js
