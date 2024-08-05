@@ -2,6 +2,7 @@
   "name": "three-m2loader",
   "version": "5.1.1",
   "description": "three.js loader for importing M2 assets from World of Warcraft.",
+  "type": "module",
   "main": "M2Loader.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
@@ -36,6 +37,5 @@
     "eslint-config-mdcs": "^5.0.0",
     "eslint-plugin-html": "^7.1.0",
     "serve": "^14.2.1"
-  },
-  "type": "module"
+  }
 }
