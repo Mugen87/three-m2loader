@@ -2952,7 +2952,7 @@ class SequenceManager {
 
 			if ( sequence.variationIndex > 0 ) continue; // ignore variations
 
-			const name = M2_ANIMATION_LIST[ sequence.id ];
+			let name = M2_ANIMATION_LIST[ sequence.id ];
 
 			if ( name === undefined ) {
 
