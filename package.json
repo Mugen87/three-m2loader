@@ -36,5 +36,6 @@
     "eslint-config-mdcs": "^5.0.0",
     "eslint-plugin-html": "^7.1.0",
     "serve": "^14.2.1"
-  }
+  },
+  "type": "module"
 }
